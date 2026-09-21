@@ -1,0 +1,16 @@
+{
+  "images": [
+    {
+      "filename": "GitHubMark.svg",
+      "idiom": "universal"
+    }
+  ],
+  "info": {
+    "author": "GitHub Octicons",
+    "version": 1
+  },
+  "properties": {
+    "preserves-vector-representation": true,
+    "template-rendering-intent": "template"
+  }
+}

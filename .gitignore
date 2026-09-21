@@ -1,0 +1,32 @@
+# Generated files and local state
+.DS_Store
+build/
+dist/
+DerivedData/
+*.xcuserstate
+xcuserdata/
+.swiftpm/
+.build/
+__pycache__/
+*.py[cod]
+.env
+.env.*
+!.env.example
+*.log
+
+# Private development briefs and historical local verification records
+/*.docx
+/*任务书.md
+/BUILD_VERIFICATION.md
+/UPDATE_*.md
+/docs/*
+!/docs/DEVELOPMENT.md
+
+# Account/session data must never be committed
+Profiles/
+Handoffs/
+auth.json
+profiles.json
+*.sqlite
+*.sqlite-*
+rollout-*.jsonl
