@@ -15,7 +15,10 @@ final class NativeChild {
         process.currentDirectoryURL = cwd
         process.environment = Self.environment(home: home)
         process.standardInput = input; process.standardOutput = output; process.standardError = FileHandle.nullDevice
-        try process.run()
+        do { try process.run() }
+        catch {
+            throw NativeMigrationDiagnostic(stage: "initialize", code: "launch-\((error as NSError).code)")
+        }
         let fd = output.fileHandleForReading.fileDescriptor
         _ = fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) | O_NONBLOCK)
     }
@@ -90,6 +93,46 @@ final class NativeChild {
 
 enum NativeHistoryLoader {
     static let fixtureCLI = "codex-cli 0.154.0-alpha.6.2"
+    /// Discover the selected client's embedded CLI by bundle identity and executable
+    /// metadata, so relocating or renaming the helper does not break migration.
+    /// Older clients shipped a bare executable instead of a CLI app bundle.
+    static func binary(in app: URL) throws -> URL {
+        let root = app.resolvingSymlinksInPath().standardizedFileURL
+        func executable(_ url: URL) -> URL? {
+            let candidate = url.resolvingSymlinksInPath().standardizedFileURL
+            guard candidate.path.hasPrefix(root.path + "/") else { return nil }
+            let values = try? candidate.resourceValues(forKeys: [.isRegularFileKey])
+            if values?.isRegularFile == true, FileManager.default.isExecutableFile(atPath: candidate.path) { return candidate }
+            return nil
+        }
+        let resources = root.appendingPathComponent("Contents/Resources")
+        var helpers: Set<URL> = []
+        if resources.resolvingSymlinksInPath().path.hasPrefix(root.path + "/"),
+           let entries = FileManager.default.enumerator(at: resources, includingPropertiesForKeys: [.isSymbolicLinkKey], options: [.skipsHiddenFiles, .skipsPackageDescendants]) {
+            var count = 0
+            while let bundle = entries.nextObject() as? URL {
+                count += 1
+                guard count <= 4096 else { throw NativeMigrationError.runtime }
+                if entries.level > 6 { entries.skipDescendants(); continue }
+                if (try? bundle.resourceValues(forKeys: [.isSymbolicLinkKey]).isSymbolicLink) == true { entries.skipDescendants(); continue }
+                guard bundle.pathExtension == "app" else { continue }
+                let plist = bundle.appendingPathComponent("Contents/Info.plist").resolvingSymlinksInPath()
+                guard plist.path.hasPrefix(root.path + "/"),
+                      let size = try? plist.resourceValues(forKeys: [.fileSizeKey]).fileSize, size <= 65536,
+                      let data = try? Data(contentsOf: plist),
+                      let info = (try? PropertyListSerialization.propertyList(from: data, format: nil)) as? [String: Any],
+                      info["CFBundleIdentifier"] as? String == "com.openai.codex.cli",
+                      let name = info["CFBundleExecutable"] as? String,
+                      !name.isEmpty, name != ".", name != "..", !name.contains("/"),
+                      let helper = executable(bundle.appendingPathComponent("Contents/MacOS").appendingPathComponent(name)) else { continue }
+                helpers.insert(helper)
+            }
+        }
+        guard helpers.count <= 1 else { throw NativeMigrationError.runtime }
+        if let helper = helpers.first { return helper }
+        if let legacy = executable(resources.appendingPathComponent("codex")) { return legacy }
+        throw NativeMigrationError.runtime
+    }
     static func version(binary: URL, home: URL) throws -> String {
         let child = try NativeChild(binary: binary, arguments: ["--version"], home: home, cwd: home)
         defer { child.close() }

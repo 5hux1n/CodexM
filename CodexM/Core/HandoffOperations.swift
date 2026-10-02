@@ -26,7 +26,7 @@ extension AppModel {
         try await store.prepare(target)
         try await store.assertNotLocked(target)
         return try await nativeMigration.migrate(thread: thread, source: source, target: target, root: dataRoot,
-            binary: runtime.appURL.appendingPathComponent("Contents/Resources/codex"))
+            binary: NativeHistoryLoader.binary(in: runtime.appURL))
     }
     func rollbackNative(_ record: NativeMigrationRecord, recoverInterrupted: Bool = false) async throws -> NativeMigrationRecord {
         guard ready, !previewMode, !isQuitting, !metadataMutation, busyProfiles.isEmpty, !relocatingAccounts,
