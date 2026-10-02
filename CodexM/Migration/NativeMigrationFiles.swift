@@ -95,53 +95,74 @@ enum NativeFiles {
         try fm.copyItem(at: file, to: dest)
         try fm.setAttributes([.posixPermissions: 0o600], ofItemAtPath: dest.path)
     }
-    static func rows(_ url: URL, _ sql: String, bindings: [String] = []) throws -> [[String]] {
+    static func rows(_ url: URL, _ sql: String, bindings: [String] = [], diagnosticStage: String? = nil) throws -> [[String]] {
         try safe(url)
         var db: OpaquePointer?
-        guard sqlite3_open_v2(url.path, &db, SQLITE_OPEN_READONLY | SQLITE_OPEN_NOMUTEX, nil) == SQLITE_OK, let db else {
-            if let db { sqlite3_close(db) }; throw NativeMigrationError.incompatible
+        func failure(_ operation: String, _ status: Int32) -> Error {
+            if let diagnosticStage {
+                return NativeMigrationDiagnostic(stage: diagnosticStage, code: "sqlite-\(operation)-\(status)")
+            }
+            return NativeMigrationError.incompatible
+        }
+        let opened = sqlite3_open_v2(url.path, &db, SQLITE_OPEN_READONLY | SQLITE_OPEN_NOMUTEX, nil)
+        guard opened == SQLITE_OK, let db else {
+            if let db { sqlite3_close(db) }
+            throw failure("open", opened)
         }
         defer { sqlite3_close(db) }
         sqlite3_busy_timeout(db, 1000)
         var statement: OpaquePointer?
-        guard sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK, let statement else { throw NativeMigrationError.incompatible }
+        let prepared = sqlite3_prepare_v2(db, sql, -1, &statement, nil)
+        guard prepared == SQLITE_OK, let statement else {
+            if let statement { sqlite3_finalize(statement) }
+            throw failure("prepare", prepared)
+        }
         defer { sqlite3_finalize(statement) }
         for (index, text) in bindings.enumerated() {
             let transient = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
-            sqlite3_bind_text(statement, Int32(index + 1), text, -1, transient)
+            let bound = sqlite3_bind_text(statement, Int32(index + 1), text, -1, transient)
+            guard bound == SQLITE_OK else { throw failure("bind", bound) }
         }
         var result: [[String]] = []
         while true {
             let status = sqlite3_step(statement)
             if status == SQLITE_DONE { return result }
-            guard status == SQLITE_ROW, result.count < 10000 else { throw NativeMigrationError.incompatible }
+            guard status == SQLITE_ROW else { throw failure("step", status) }
+            guard result.count < 10000 else {
+                if let diagnosticStage { throw NativeMigrationDiagnostic(stage: diagnosticStage, code: "rowLimit") }
+                throw NativeMigrationError.incompatible
+            }
             result.append((0..<sqlite3_column_count(statement)).map { col in
                 sqlite3_column_text(statement, col).map { String(cString: $0) } ?? ""
             })
         }
     }
     static func schema(_ home: URL, threadID: String, source: Bool) throws {
+        let stage = source ? "sourceSchema" : "targetSchema"
+        func readRows(_ url: URL, _ sql: String, bindings: [String] = []) throws -> [[String]] {
+            try rows(url, sql, bindings: bindings, diagnosticStage: stage)
+        }
         let db = home.appendingPathComponent("state_5.sqlite")
         let names = try fm.contentsOfDirectory(atPath: home.path)
         let versions = names.filter { ($0.hasPrefix("state_") || $0.hasPrefix("thread_history_") || $0.hasPrefix("goals_")) && $0.hasSuffix(".sqlite") }
-        guard versions.allSatisfy({ ["state_5.sqlite", "thread_history_1.sqlite", "goals_1.sqlite"].contains($0) }) else { throw NativeMigrationError.incompatible }
-        if !fm.fileExists(atPath: db.path) { if source { throw NativeMigrationError.incompatible }; return }
-        let columns = try rows(db, "PRAGMA table_info(threads)").map { $0[1] }
-        guard Set(["id", "rollout_path", "cwd"]).isSubset(of: Set(columns)) else { throw NativeMigrationError.incompatible }
-        let existing = try rows(db, "SELECT id FROM threads WHERE id=?", bindings: [threadID])
+        guard versions.allSatisfy({ ["state_5.sqlite", "thread_history_1.sqlite", "goals_1.sqlite"].contains($0) }) else { throw NativeMigrationDiagnostic(stage: stage, code: "unsupportedDatabaseVersion") }
+        if !fm.fileExists(atPath: db.path) { if source { throw NativeMigrationDiagnostic(stage: stage, code: "missingStateDatabase") }; return }
+        let columns = try readRows(db, "PRAGMA table_info(threads)").map { $0[1] }
+        guard Set(["id", "rollout_path", "cwd"]).isSubset(of: Set(columns)) else { throw NativeMigrationDiagnostic(stage: stage, code: "missingThreadColumns") }
+        let existing = try readRows(db, "SELECT id FROM threads WHERE id=?", bindings: [threadID])
         if !source { guard existing.isEmpty else { throw NativeMigrationError.conflict }; return }
         guard existing.count == 1 else { throw NativeMigrationError.invalid }
-        let tables = Set(try rows(db, "SELECT name FROM sqlite_master WHERE type='table'").map { $0[0] })
+        let tables = Set(try readRows(db, "SELECT name FROM sqlite_master WHERE type='table'").map { $0[0] })
         for table in ["thread_spawn_edges", "thread_artifacts", "thread_dynamic_tools"] where tables.contains(table) {
-            let cols = try rows(db, "PRAGMA table_info(\(table))").map { $0[1] }.filter { $0 == "thread_id" || $0.hasSuffix("_thread_id") }
+            let cols = try readRows(db, "PRAGMA table_info(\(table))").map { $0[1] }.filter { $0 == "thread_id" || $0.hasSuffix("_thread_id") }
             guard !cols.isEmpty else { throw NativeMigrationError.incompatible }
             let predicate = cols.map { "\($0)=?" }.joined(separator: " OR ")
-            guard try rows(db, "SELECT 1 FROM \(table) WHERE \(predicate) LIMIT 1", bindings: cols.map { _ in threadID }).isEmpty else { throw NativeMigrationError.unsupported }
+            guard try readRows(db, "SELECT 1 FROM \(table) WHERE \(predicate) LIMIT 1", bindings: cols.map { _ in threadID }).isEmpty else { throw NativeMigrationError.unsupported }
         }
         let goals = home.appendingPathComponent("goals_1.sqlite")
         if fm.fileExists(atPath: goals.path) {
-            let tables = try rows(goals, "SELECT name FROM sqlite_master WHERE type='table'").map { $0[0] }
-            if tables.contains("thread_goals"), !(try rows(goals, "SELECT 1 FROM thread_goals WHERE thread_id=? LIMIT 1", bindings: [threadID])).isEmpty { throw NativeMigrationError.unsupported }
+            let tables = try readRows(goals, "SELECT name FROM sqlite_master WHERE type='table'").map { $0[0] }
+            if tables.contains("thread_goals"), !(try readRows(goals, "SELECT 1 FROM thread_goals WHERE thread_id=? LIMIT 1", bindings: [threadID])).isEmpty { throw NativeMigrationError.unsupported }
         }
     }
     static func stopped(_ home: URL, electron: URL) throws {
