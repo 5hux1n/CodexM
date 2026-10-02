@@ -40,7 +40,7 @@ struct HandoffView: View {
             else if let package { result(package) }
             else if let draft { preview(draft) }
             else { selection.disabled(working) }
-            if let error { Text(error).font(.callout).foregroundStyle(.red).fixedSize(horizontal: false, vertical: true) }
+            if let error { Text(error).font(.callout).foregroundStyle(.red).fixedSize(horizontal: false, vertical: true).textSelection(.enabled) }
             Divider()
             HStack {
                 if draft != nil || package != nil || nativeRecord != nil {
@@ -213,7 +213,7 @@ struct HandoffView: View {
             }
         }
     }
-    private func message(_ error: Error) -> String { (error as? NativeMigrationDiagnostic)?.errorDescription ?? (error as? NativeMigrationError)?.errorDescription ?? (error as? CodexMError)?.errorDescription ?? model.text("error.handoffPackage") }
+    private func message(_ error: Error, operation: String) -> String { model.diagnosticMessage(error, operation: operation) }
     private func loadThreads() {
         task?.cancel(); let id = UUID(); requestID = id
         threads = []; threadID = nil; error = nil; loading = true
@@ -225,7 +225,7 @@ struct HandoffView: View {
                 threads = result; threadID = result.first?.id; loading = false
             } catch {
                 guard !Task.isCancelled, requestID == id else { return }
-                self.error = message(error); loading = false
+                self.error = message(error, operation: "handoff.taskList"); loading = false
             }
         }
     }
@@ -238,7 +238,7 @@ struct HandoffView: View {
                 let result = try await model.handoffCoordinator.prepare(thread: thread, source: source, target: target, root: model.dataRoot)
                 try Task.checkCancellation()
                 draft = result; context = result.context
-            } catch { if !Task.isCancelled { self.error = message(error) } }
+            } catch { if !Task.isCancelled { self.error = message(error, operation: "handoff.prepare") } }
         }
     }
     private func commit(_ original: HandoffDraft) {
@@ -250,7 +250,7 @@ struct HandoffView: View {
                 let saved = try await model.handoffStore.save(draft)
                 package = saved; copy(saved)
                 await launchTarget(saved)
-            } catch { self.error = message(error) }
+            } catch { self.error = message(error, operation: "handoff.save") }
         }
     }
     private func copy(_ package: HandoffPackage) {
@@ -262,15 +262,16 @@ struct HandoffView: View {
         task = Task { await launchTarget(package); working = false }
     }
     private func launchTarget(_ original: HandoffPackage) async {
-        guard let target = model.profiles.first(where: { $0.id == original.manifest.target.profileId }) else { error = model.text("error.profileNotFound"); return }
+        guard let target = model.profiles.first(where: { $0.id == original.manifest.target.profileId }) else { error = message(CodexMError.profileNotFound, operation: "handoff.target"); return }
         guard !model.previewMode else { error = model.text("handoff.previewMode"); return }
         var directory: ObjCBool = false
-        guard FileManager.default.fileExists(atPath: original.manifest.project.cwd, isDirectory: &directory), directory.boolValue else { error = model.text("error.handoffProject"); return }
+        guard FileManager.default.fileExists(atPath: original.manifest.project.cwd, isDirectory: &directory), directory.boolValue else { error = message(CodexMError.handoffProject, operation: "handoff.project"); return }
+        let previousMessage = model.errorMessage
         await model.launchHandoffTarget(target)
         let status: HandoffStatus = model.state(target) == .running ? .launched : .failed
         do { package = try await model.handoffStore.update(original, status: status) }
-        catch { self.error = message(error) }
-        if status == .failed { error = model.text("handoff.launchFailed") }
+        catch { self.error = message(error, operation: "handoff.update") }
+        if status == .failed, error == nil { error = (model.errorMessage != previousMessage ? model.errorMessage : nil) ?? message(CodexMError.launchFailed, operation: "handoff.launch") }
     }
     private func nativeResult(_ record: NativeMigrationRecord) -> some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -278,8 +279,9 @@ struct HandoffView: View {
             Text(record.title).font(.headline)
             Text(record.project).font(.caption).textSelection(.enabled)
             Text(model.text("native.threadID", record.threadID)).font(.caption).textSelection(.enabled)
-            if let detail = record.diagnostic { Text(detail.errorDescription ?? "").foregroundStyle(.red).font(.callout) }
-            else if let code = record.failureCode { Text(model.text(code)).foregroundStyle(.red).font(.callout) }
+            if let failure = record.failure { Text(failure.errorDescription ?? "").foregroundStyle(.red).font(.callout).textSelection(.enabled) }
+            else if let detail = record.diagnostic { Text(detail.errorDescription ?? "").foregroundStyle(.red).font(.callout) }
+            else if let code = record.failureCode { Text(model.text(code) + "\n" + code).foregroundStyle(.red).font(.callout) }
             if let evidence = record.evidence {
                 Text(model.text("native.evidence", evidence.turns, evidence.items))
             }
@@ -316,29 +318,33 @@ struct HandoffView: View {
                 nativeRecord = record
                 if record.status == "verified" { await launchNativeTarget(record) }
             }
-            catch { self.error = message(error) }
+            catch { self.error = message(error, operation: "native.import") }
         }
     }
     private func launchNativeTarget(_ record: NativeMigrationRecord) async {
         guard record.status == "verified" else { return }
         guard let target = model.profiles.first(where: { $0.id == record.targetProfile }) else {
-            error = model.text("error.profileNotFound"); return
+            error = message(CodexMError.profileNotFound, operation: "handoff.target"); return
         }
+        let previousMessage = model.errorMessage
         await model.launchHandoffTarget(target)
-        if model.state(target) != .running { error = model.text("native.launchFailed") }
+        if model.state(target) != .running { error = (model.errorMessage != previousMessage ? model.errorMessage : nil) ?? message(CodexMError.launchFailed, operation: "native.launch") }
     }
     private func rollbackNative(_ record: NativeMigrationRecord, recoverInterrupted: Bool = false) {
         working = true; error = nil
         task = Task {
             defer { working = false; refreshHistory() }
             do { nativeRecord = try await model.rollbackNative(record, recoverInterrupted: recoverInterrupted) }
-            catch { self.error = message(error) }
+            catch { self.error = message(error, operation: "native.rollback") }
         }
     }
     private func refreshHistory() {
         Task {
             do { history = try await model.handoffStore.recent(); nativeHistory = try await model.nativeMigration.recent(root: model.dataRoot) }
-            catch { self.error = message(error) }
+            catch {
+                let report = message(error, operation: "handoff.history")
+                if self.error == nil { self.error = report }
+            }
         }
     }
 }

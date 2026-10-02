@@ -100,22 +100,24 @@ enum NativeFiles {
         var db: OpaquePointer?
         func failure(_ operation: String, _ status: Int32) -> Error {
             if let diagnosticStage {
-                return NativeMigrationDiagnostic(stage: diagnosticStage, code: "sqlite-\(operation)-\(status)")
+                return NativeMigrationDiagnostic(stage: diagnosticStage, code: "sqlite-\(operation)-\(status)", extendedCode: db.map { Int(sqlite3_extended_errcode($0)) }, systemCode: db.map { Int(sqlite3_system_errno($0)) }, database: ["state_5.sqlite", "goals_1.sqlite", "thread_history_1.sqlite", "memories_v2_1.sqlite"].contains(url.lastPathComponent) ? url.lastPathComponent : "other.sqlite")
             }
-            return NativeMigrationError.incompatible
+            return NativeMigrationDiagnostic(stage: "database", code: "sqlite-\(operation)-\(status)", extendedCode: db.map { Int(sqlite3_extended_errcode($0)) }, systemCode: db.map { Int(sqlite3_system_errno($0)) }, database: ["state_5.sqlite", "goals_1.sqlite", "thread_history_1.sqlite", "memories_v2_1.sqlite"].contains(url.lastPathComponent) ? url.lastPathComponent : "other.sqlite")
         }
         let opened = sqlite3_open_v2(url.path, &db, SQLITE_OPEN_READONLY | SQLITE_OPEN_NOMUTEX, nil)
         guard opened == SQLITE_OK, let db else {
+            let error = failure("open", opened)
             if let db { sqlite3_close(db) }
-            throw failure("open", opened)
+            throw error
         }
         defer { sqlite3_close(db) }
         sqlite3_busy_timeout(db, 1000)
         var statement: OpaquePointer?
         let prepared = sqlite3_prepare_v2(db, sql, -1, &statement, nil)
         guard prepared == SQLITE_OK, let statement else {
+            let error = failure("prepare", prepared)
             if let statement { sqlite3_finalize(statement) }
-            throw failure("prepare", prepared)
+            throw error
         }
         defer { sqlite3_finalize(statement) }
         for (index, text) in bindings.enumerated() {

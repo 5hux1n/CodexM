@@ -115,7 +115,8 @@ actor WindowService {
         // not a reliable substitute, especially with multiple instances.
         AXUIElementSetAttributeValue(app, kAXFocusedWindowAttribute as CFString, window.element)
         AXUIElementSetAttributeValue(app, kAXFrontmostAttribute as CFString, kCFBooleanTrue)
-        guard AXUIElementPerformAction(window.element, kAXRaiseAction as CFString) == .success else { throw CodexMError.windowNotFound }
+        let raised = AXUIElementPerformAction(window.element, kAXRaiseAction as CFString)
+        guard raised == .success else { throw AppFailure(id: UUID(), timestamp: Date(), code: "CM-AX-raise-\(raised.rawValue)", operation: "window.focus", messageKey: "error.windowFocusFailed", technical: "AXError=\(raised.rawValue)") }
         return window.id
     }
 
@@ -144,8 +145,9 @@ actor WindowService {
         guard let bar = attribute(app, kAXMenuBarAttribute), CFGetTypeID(bar) == AXUIElementGetTypeID() else { throw CodexMError.newWindowUnavailable }
         let names: Set<String> = ["New Window", "新建窗口", "新窗口", "新增視窗", "新建視窗"]
         var budget = 160
-        guard let item = findMenuItem(unsafeDowncast(bar, to: AXUIElement.self), titles: names, depth: 0, budget: &budget),
-              AXUIElementPerformAction(item, kAXPressAction as CFString) == .success else { throw CodexMError.newWindowUnavailable }
+        guard let item = findMenuItem(unsafeDowncast(bar, to: AXUIElement.self), titles: names, depth: 0, budget: &budget) else { throw CodexMError.newWindowUnavailable }
+        let pressed = AXUIElementPerformAction(item, kAXPressAction as CFString)
+        guard pressed == .success else { throw AppFailure(id: UUID(), timestamp: Date(), code: "CM-AX-press-\(pressed.rawValue)", operation: "window.create", messageKey: "error.newWindowUnavailable", technical: "AXError=\(pressed.rawValue)") }
     }
 
     private func findMenuItem(_ element: AXUIElement, titles: Set<String>, depth: Int, budget: inout Int) -> AXUIElement? {

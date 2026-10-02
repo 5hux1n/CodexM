@@ -123,7 +123,69 @@ rows.update({
 'native.openTarget': ('Open Target Account', '打开目标账户'),
 'native.launchFailed': ('Import succeeded, but the target account could not be opened. Click Open Target Account to retry; no reimport is needed.', '任务已导入成功，但未能打开目标账户。点击“打开目标账户”重试即可，无需重新导入。'),
 })
-rows.update({'native.mode': ('Handoff method', '接力方式'), 'native.mode.native': ('Native History Import', '原生任务迁移'), 'native.mode.context': ('Context Handoff', '上下文接力'), 'native.intro': ('Copy the original task and its unredacted history, preserving its ID. The source stays unchanged. Account credentials are excluded. Import uses the official local history loader; continuing with another account still needs verification. Unsupported tasks can use Context Handoff.', '复制原任务及未经脱敏的完整历史，保留任务 ID，源任务保持不变；不复制登录凭据。由官方本地程序加载历史，跨账户继续执行仍需验证。不支持的任务可切换为上下文接力。'), 'native.paused': ('I have paused this task in the source account and will not run it in both accounts.', '我已暂停源账户中的此任务，不会在两个账户同时继续执行。'), 'native.import': ('Import and Open Target', '导入并打开目标账户'), 'native.targetRunning': ('Stop the target account before importing.', '导入前需要停止目标账户。'), 'native.stopTarget': ('Stop Target Account', '停止目标账户'), 'native.recent': ('Native imports and recovery', '原生迁移记录与恢复'), 'native.status.prepared': ('Prepared · target unchanged', '准备阶段 · 目标未改动'), 'native.status.importing': ('Interrupted import · recovery required', '导入中断 · 需要恢复'), 'native.status.verified': ('Local history imported and verified', '本地历史已导入并验证'), 'native.status.failed': ('Import failed · backup retained', '导入失败 · 已保留备份'), 'native.status.restoring': ('Interrupted recovery · backup retained', '恢复中断 · 已保留备份'), 'native.status.rolledBack': ('Rolled back', '已回滚'), 'native.threadID': ('Original task ID: %@', '原任务 ID：%@'), 'native.evidence': ('%d turns and %d history items verified across helper restart.', '已验证 %d 轮、%d 个历史条目，重启本地服务后内容一致。'), 'native.next': ('After import, the target account opens automatically. Find this task in its task list; no context pasting is needed. Check the history, then manually send a small continuation request. Import verification does not establish cross-account execution compatibility.', '导入成功后自动打开目标账户，在任务列表中找到这个原任务即可，无需复制或粘贴上下文。先检查历史，再手动发送一条简短的继续指令。导入验证不代表已证明跨账户执行兼容。'), 'native.recoveryHint': ('No successful native continuation is claimed. The backup and migration record are kept locally. Use rollback if available; interrupted operations require recovery before retrying.', '当前未确认原生续接成功。备份和迁移记录均保存在本机；可用时点击回滚，操作中断时请先恢复再重试。'), 'native.rollbackHint': ('A local backup protects the target’s existing task data if import fails. The source task remains unchanged. Rollback requires the target account to be stopped and its history to be unchanged since import. New target activity blocks rollback to protect new work. Credentials are never restored or overwritten.', '备份用于在导入失败时恢复目标账户原有的任务数据，源任务仍然保留。回滚要求目标账户已停止，且任务数据自导入后没有变化。目标产生新数据后会阻止回滚，避免丢失新工作；不会恢复或覆盖登录凭据。'), 'native.backup': ('Show Backup', '查看备份'), 'native.rollback': ('Roll Back Import', '回滚本次导入'), 'native.error.busy': ('The target account or its data is in use. Stop its Codex windows and try again.', '目标账户或其数据仍在使用中，请停止目标 Codex 后重试。'), 'native.error.conflict': ('The target already contains this task. It will not be overwritten.', '目标账户已存在此任务，不会覆盖。'), 'native.error.incompatible': ('This runtime or data format has not been verified for native import. Use Context Handoff.', '当前客户端版本或数据格式尚未验证原生导入兼容性，请使用上下文接力。'), 'native.error.unsupported': ('This first version supports unarchived standalone tasks only. Tasks with child tasks, goals, artifacts or dynamic tools need Context Handoff.', '第一版支持未归档的独立任务。关联子任务、目标、附件或动态工具的任务请使用上下文接力。'), 'native.error.changed': ('Task data changed during the operation. Pause the source task and stop the target before retrying.', '操作期间任务数据发生变化，请暂停源任务并停止目标账户后重试。'), 'native.error.invalid': ('Migration data, paths, checksums or available disk space failed validation. No credentials will be copied.', '迁移数据、路径、校验和或可用磁盘空间检查未通过，不会复制凭据。'), 'native.error.helper': ('The official local history loader did not complete verification. The migration record retains recovery information.', '官方本地历史加载未通过验证，迁移记录中保留了恢复信息。'), 'native.error.rollbackChanged': ('The target has changed since import. Rollback was blocked to preserve newer work. The original backup is retained.', '目标数据在导入后发生了变化，为保留后续工作已阻止回滚，原始备份仍然保留。'), 'native.error.recovery': ('This migration needs recovery before further imports. Keep the backup and avoid modifying the target.', '此迁移需要先恢复才能再次导入。请保留备份，暂勿修改目标数据。')})
+rows.update({'native.mode': ('Handoff method', '接力方式'),
+ 'native.mode.native': ('Native History Import', '原生任务迁移'),
+ 'native.mode.context': ('Context Handoff', '上下文接力'),
+ 'native.intro': ('Copy the original task and its unredacted history, preserving its ID. The source stays '
+                  'unchanged. Account credentials are excluded. Import uses the official local history '
+                  'loader; continuing with another account still needs verification. Unsupported tasks can '
+                  'use Context Handoff.',
+                  '复制原任务及未经脱敏的完整历史，保留任务 ID，源任务保持不变；不复制登录凭据。由官方本地程序加载历史，跨账户继续执行仍需验证。不支持的任务可切换为上下文接力。'),
+ 'native.paused': ('I have paused this task in the source account and will not run it in both accounts.',
+                   '我已暂停源账户中的此任务，不会在两个账户同时继续执行。'),
+ 'native.import': ('Import and Open Target', '导入并打开目标账户'),
+ 'native.targetRunning': ('Stop the target account before importing.', '导入前需要停止目标账户。'),
+ 'native.stopTarget': ('Stop Target Account', '停止目标账户'),
+ 'native.recent': ('Native imports and recovery', '原生迁移记录与恢复'),
+ 'native.status.prepared': ('Prepared · target unchanged', '准备阶段 · 目标未改动'),
+ 'native.status.importing': ('Interrupted import · recovery required', '导入中断 · 需要恢复'),
+ 'native.status.verified': ('Local history imported and verified', '本地历史已导入并验证'),
+ 'native.status.failed': ('Import failed · backup retained', '导入失败 · 已保留备份'),
+ 'native.status.restoring': ('Interrupted recovery · backup retained', '恢复中断 · 已保留备份'),
+ 'native.status.rolledBack': ('Rolled back', '已回滚'),
+ 'native.threadID': ('Original task ID: %@', '原任务 ID：%@'),
+ 'native.evidence': ('%d turns and %d history items verified across helper restart.',
+                     '已验证 %d 轮、%d 个历史条目，重启本地服务后内容一致。'),
+ 'native.next': ('After import, the target account opens automatically. Find this task in its task list; no '
+                 'context pasting is needed. Check the history, then manually send a small continuation '
+                 'request. Import verification does not establish cross-account execution compatibility.',
+                 '导入成功后自动打开目标账户，在任务列表中找到这个原任务即可，无需复制或粘贴上下文。先检查历史，再手动发送一条简短的继续指令。导入验证不代表已证明跨账户执行兼容。'),
+ 'native.recoveryHint': ('No successful native continuation is claimed. The backup and migration record are '
+                         'kept locally. Use rollback if available; interrupted operations require recovery '
+                         'before retrying.',
+                         '当前未确认原生续接成功。备份和迁移记录均保存在本机；可用时点击回滚，操作中断时请先恢复再重试。'),
+ 'native.rollbackHint': ('A local backup protects the target’s existing task data if import fails. The '
+                         'source task remains unchanged. Rollback requires the target account to be stopped '
+                         'and its history to be unchanged since import. New target activity blocks rollback '
+                         'to protect new work. Credentials are never restored or overwritten.',
+                         '备份用于在导入失败时恢复目标账户原有的任务数据，源任务仍然保留。回滚要求目标账户已停止，且任务数据自导入后没有变化。目标产生新数据后会阻止回滚，避免丢失新工作；不会恢复或覆盖登录凭据。'),
+ 'native.backup': ('Show Backup', '查看备份'),
+ 'native.rollback': ('Roll Back Import', '回滚本次导入'),
+ 'native.error.busy': ('The target account or its data is in use. Stop its Codex windows and try again.',
+                       '目标账户或其数据仍在使用中，请停止目标 Codex 后重试。'),
+ 'native.error.conflict': ('The target already contains this task. It will not be overwritten.',
+                           '目标账户已存在此任务，不会覆盖。'),
+ 'native.error.incompatible': ('This runtime or data format has not been verified for native import. Use '
+                               'Context Handoff.',
+                               '当前客户端版本或数据格式尚未验证原生导入兼容性，请使用上下文接力。'),
+ 'native.error.unsupported': ('This first version supports unarchived standalone tasks only. Tasks with '
+                              'child tasks, goals, artifacts or dynamic tools need Context Handoff.',
+                              '第一版支持未归档的独立任务。关联子任务、目标、附件或动态工具的任务请使用上下文接力。'),
+ 'native.error.changed': ('Task data changed during the operation. Pause the source task and stop the target '
+                          'before retrying.',
+                          '操作期间任务数据发生变化，请暂停源任务并停止目标账户后重试。'),
+ 'native.error.invalid': ('Migration data, paths, checksums or available disk space failed validation. No '
+                          'credentials will be copied.',
+                          '迁移数据、路径、校验和或可用磁盘空间检查未通过，不会复制凭据。'),
+ 'native.error.helper': ('The official local history loader did not complete verification. The migration '
+                         'record retains recovery information.',
+                         '官方本地历史加载未通过验证，迁移记录中保留了恢复信息。'),
+ 'native.error.rollbackChanged': ('The target has changed since import. Rollback was blocked to preserve '
+                                  'newer work. The original backup is retained.',
+                                  '目标数据在导入后发生了变化，为保留后续工作已阻止回滚，原始备份仍然保留。'),
+ 'native.error.recovery': ('This migration needs recovery before further imports. Keep the backup and avoid '
+                           'modifying the target.',
+                           '此迁移需要先恢复才能再次导入。请保留备份，暂勿修改目标数据。')})
 rows.update({
 'native.recover': ('Recover Interrupted Import', '恢复中断的导入'),
 'native.recoverConfirm': ('Restore task data to the backup from before this import? All current task data will first be preserved in a separate recovery folder. Account credentials stay unchanged.', '将任务数据恢复到本次导入之前的备份？当前任务数据会先完整另存至恢复目录，登录凭据保持不变。'),
@@ -145,6 +207,153 @@ rows.update({
 'native.stage.compare': ('Comparing history across restart', '重启前后历史对比'),
 'native.stage.rollout': ('Checking original history preservation', '原始历史完整性检查'),
 'native.stage.schema': ('Checking reconstructed data structure', '重建数据结构检查'),
+})
+rows.update({})
+rows.update({'accessibility.authorization': ('Accessibility access', '辅助功能授权'),
+ 'window.openCount': ('%d windows open', '已开启 %d 个窗口'),
+ 'native.stage.sourceSchema': ('Source database check', '源账户数据库检查'),
+ 'native.stage.targetSchema': ('Target database check', '目标账户数据库检查'),
+ 'native.stage.sourcePath': ('Source history copy comparison', '源历史新旧副本比较'),
+ 'native.stage.sourceHistory': ('Source history format check', '源历史格式检查'),
+ 'native.stage.occupancy': ('Target file occupancy check', '目标账户文件占用检查'),
+ 'window.focusPermissionPrefix': ('Focusing windows requires ', '聚焦窗口需要'),
+ 'window.hoverHint': ('Hover to preview a window · Click to switch', '悬停预览窗口 · 点击切换'),
+ 'error.windowFocusFailed': ('The selected window did not become focused. Check Accessibility permission and '
+                             'try again.',
+                             '目标窗口未成功获得焦点，请检查辅助功能权限后重试。'),
+ 'diagnostic.details': ('Code: %@\nOperation: %@\nReference: %@', '错误码：%@\n阶段：%@\n定位编号：%@'),
+ 'diagnostic.nativeFailure': ('The official history service could not complete this step. Copy diagnostics '
+                              'and keep any migration backup for investigation.',
+                              '官方历史服务未能完成此步骤。请复制诊断信息，并保留已有迁移备份以便定位。'),
+ 'diagnostic.databaseAccess': ('Cannot open the task database or its related files. Close the relevant '
+                               'client if it is accessing these files. Allow CodexM to access the account '
+                               'data when macOS asks, then retry. This code alone does not indicate an '
+                               'incompatible format.',
+                               '无法打开任务数据库或关联文件。若对应客户端正使用这些文件，请先关闭；若 macOS 提示访问其他应用的数据，请允许 CodexM '
+                               '访问后重试。此错误码本身不代表格式不兼容。'),
+ 'diagnostic.databaseBusy': ('The task database is locked or busy. Stop the relevant client, wait for it to '
+                             'exit, then retry. Do not delete database lock or journal files.',
+                             '任务数据库正被占用或锁定。请停止对应客户端，等待进程退出后重试。不要删除数据库锁或日志文件。'),
+ 'diagnostic.databaseDamaged': ('SQLite could not recognize the database contents or detected damage. Keep '
+                                'the original files and migration backup; do not overwrite or delete them. '
+                                'Copy diagnostics for investigation.',
+                                'SQLite 无法识别数据库内容或检测到损坏。请保留原文件和迁移备份，勿覆盖或删除，并复制诊断信息排查。'),
+ 'diagnostic.databaseFailure': ('A database query failed. Copy diagnostics so its operation and SQLite codes '
+                                'can be checked; the error alone does not confirm a format change.',
+                                '数据库查询失败。请复制诊断信息，以便核对操作阶段与 SQLite 错误码；此报错尚不能确认格式发生变化。'),
+ 'diagnostic.fileAccess': ('Access to local data was denied. Allow the system data-access prompt if shown '
+                           'and check the directory permissions, then retry. Accessibility permission '
+                           'controls windows and does not grant data access.',
+                           '本机数据访问被拒绝。若出现系统数据访问提示，请允许，并检查目录权限后重试。辅助功能权限用于控制窗口，不等于数据访问权限。'),
+ 'diagnostic.fileMissing': ('A required file or directory could not be found. Confirm the selected client '
+                            'and account data location still exist, then retry.',
+                            '找不到所需文件或目录。请确认所选客户端及账户数据位置仍存在后重试。'),
+ 'diagnostic.diskFull': ('The storage device has insufficient free space. Free space on the account-data and '
+                         'handoff-package volumes, then retry.',
+                         '存储设备剩余空间不足。请清理账户数据及接力包所在磁盘的空间后重试。'),
+ 'diagnostic.unexpected': ('This operation failed for an unclassified reason. Copy diagnostics; the system '
+                           'code and operation are retained without private error text.',
+                           '此操作因未分类原因失败。请复制诊断信息，其中保留了系统错误码与操作阶段，不包含私人错误原文。'),
+ 'diagnostic.processExit': ('The managed client exited abnormally. The exit status or signal is available in '
+                            'diagnostics.',
+                            '受管理的客户端异常退出，诊断信息中保留了退出状态或信号。'),
+ 'diagnostic.privacy': ('Copy app/client versions and up to 100 recent error codes, operations, timestamps '
+                        'and references. Account names, paths, credentials and conversation contents are '
+                        'excluded.',
+                        '复制应用与客户端版本，以及最近最多 100 条错误的代码、阶段、时间和定位编号。不包含账户名称、路径、凭据或对话内容。'),
+ 'diagnostic.targetUntouched': ('This attempt stopped before task-history import. No task history was '
+                                'imported into the target.',
+                                '本次在任务历史导入前停止，尚未向目标账户导入任务历史。'),
+ 'diagnostic.targetMayChanged': ('Target task storage may have changed. Keep the migration backup and use '
+                                 'the recorded recovery or rollback action before another import.',
+                                 '目标任务存储可能已发生变化。请保留迁移备份，并先使用记录中的恢复或回滚操作，再重新导入。'),
+ 'error.filesystemError': ('A local file operation failed. Copy diagnostics to distinguish access, '
+                           'missing-file and storage errors before changing files.',
+                           '本机文件操作失败。请复制诊断信息，区分访问权限、文件缺失与存储错误后再处理文件。'),
+ 'error.handoffPackage': ('The handoff package is incomplete, unreadable or uses an unsupported format. Keep '
+                          'the package and copy diagnostics before regenerating it.',
+                          '接力包不完整、无法读取或格式不受支持。请保留接力包并复制诊断信息，再重新生成。'),
+ 'error.corruptStorage': ('Account metadata could not be decoded or its structure is unsupported. Keep '
+                          'profiles.json; do not replace it with an empty file. Recover a valid copy or '
+                          'share diagnostics.',
+                          '账户元数据无法解析或结构不受支持。请保留 profiles.json，勿用空文件覆盖；可恢复有效副本或提供诊断信息排查。'),
+ 'error.unsafePath': ('A path contains an unexpected symbolic link or invalid directory. The current step '
+                      'was blocked. Check the data location; retain any migration record for earlier steps.',
+                      '路径含有非预期符号链接或无效目录，当前步骤已阻止。请检查数据位置，并保留迁移记录以核对先前步骤。'),
+ 'error.handoffProject': ('The project directory cannot be found or accessed. Restore access to the original '
+                          'project before continuing; retain any existing handoff package.',
+                          '找不到原项目目录或无法访问。请恢复原项目目录的访问后继续，并保留已有接力包。'),
+ 'error.storageLocked': ('Another CodexM holds the data-directory lock. Use the existing instance or close '
+                         'it before retrying. Do not delete manager.lock while another instance is running.',
+                         '另一份 CodexM 持有数据目录锁。请使用已有实例或关闭后重试；其他实例运行时不要删除 manager.lock。'),
+ 'native.error.diagnostic': ('History processing failed at %@ (code: %@). Keep diagnostics and any existing '
+                             'migration backup.',
+                             '历史处理在“%@”阶段失败（代码：%@）。请保留诊断信息和已有迁移备份。'),
+ 'native.error.helper': ('The official history loader could not complete loading or verification. Check the '
+                         'reported stage; keep any migration record and backup before retrying.',
+                         '官方历史加载器未能完成加载或验证。请核对报错阶段，保留已有迁移记录和备份后再处理。'),
+ 'native.error.invalid': ('Migration validation failed. Check the reported stage to identify the affected '
+                          'path, history, checksum or free-space check. Keep the original data.',
+                          '迁移校验未通过。请根据报错阶段区分路径、历史、校验和或磁盘空间检查，并保留原数据。'),
+ 'native.error.unsupported': ('This migration mode supports unarchived independent tasks. Tasks with related '
+                              'subtasks, goals, artifacts or dynamic tools require Context Handoff.',
+                              '此迁移方式支持未归档的独立任务。包含关联子任务、目标、附件或动态工具的任务请使用上下文接力。'),
+ 'diagnostic.operation.app': ('Application operation', '应用操作'),
+ 'diagnostic.operation.storage.load': ('Loading account metadata', '读取账户元数据'),
+ 'diagnostic.operation.storage.save': ('Saving account metadata', '保存账户元数据'),
+ 'diagnostic.operation.storage.directory': ('Preparing account directory', '准备账户目录'),
+ 'diagnostic.operation.account.save': ('Saving account', '保存账户'),
+ 'diagnostic.operation.account.delete': ('Deleting account', '删除账户'),
+ 'diagnostic.operation.account.relocate': ('Moving account data', '迁移账户数据目录'),
+ 'diagnostic.operation.account.launch': ('Starting account client', '启动账户客户端'),
+ 'diagnostic.operation.account.exit': ('Client exit', '客户端退出'),
+ 'diagnostic.operation.window.focus': ('Focusing window', '聚焦窗口'),
+ 'diagnostic.operation.window.preview': ('Previewing window', '预览窗口'),
+ 'diagnostic.operation.window.create': ('Creating window', '新建窗口'),
+ 'diagnostic.operation.runtime.select': ('Selecting official client', '选择官方客户端'),
+ 'diagnostic.operation.loginItem': ('Updating login item', '更改登录项'),
+ 'diagnostic.operation.clipboard': ('Copying diagnostics', '复制诊断信息'),
+ 'diagnostic.operation.handoff.taskList': ('Reading task list', '读取任务列表'),
+ 'diagnostic.operation.handoff.prepare': ('Preparing handoff context', '生成接力上下文'),
+ 'diagnostic.operation.handoff.save': ('Saving handoff package', '保存接力包'),
+ 'diagnostic.operation.handoff.update': ('Updating handoff package', '更新接力包'),
+ 'diagnostic.operation.handoff.launch': ('Starting handoff target', '启动接力目标'),
+ 'diagnostic.operation.handoff.target': ('Finding target account', '查找目标账户'),
+ 'diagnostic.operation.handoff.project': ('Checking project directory', '检查项目目录'),
+ 'diagnostic.operation.handoff.history': ('Refreshing handoff records', '刷新接力记录'),
+ 'native.stage.validation': ('Validating migration inputs', '检查迁移参数'),
+ 'native.stage.taskList': ('Reading task database', '读取任务数据库'),
+ 'native.stage.database': ('Querying task database', '查询任务数据库'),
+ 'native.stage.inventory': ('Checking target task files', '检查目标任务文件'),
+ 'native.stage.diskSpace': ('Checking available disk space', '检查可用磁盘空间'),
+ 'native.stage.package': ('Creating migration package', '创建迁移包'),
+ 'native.stage.backup': ('Backing up target task storage', '备份目标任务存储'),
+ 'native.stage.import': ('Copying task history', '复制任务历史'),
+ 'native.stage.importLoad': ('Loading imported history', '加载导入历史'),
+ 'native.stage.importRestart': ('Reading imported history after restart', '重启后读取导入历史'),
+ 'native.stage.importCompare': ('Verifying imported history', '验证导入历史一致性'),
+ 'native.stage.importRollout': ('Verifying imported history file', '验证导入历史文件'),
+ 'native.stage.importDatabase': ('Verifying imported task database', '验证导入任务数据库'),
+ 'native.stage.record': ('Saving migration result', '保存迁移结果'),
+ 'native.stage.rollback': ('Restoring migration backup', '恢复迁移备份'),
+ 'native.stage.launch': ('Starting imported task client', '启动导入任务客户端')})
+rows.update({
+    'diagnostics.copy': ('Copy Diagnostics', '复制诊断信息'),
+    'diagnostics.title': ('Diagnostics', '诊断信息'),
+    'diagnostics.copied': ('Diagnostics Copied', '诊断信息已复制'),
+    'native.stage.directory': ('Preparing target directory', '准备目标账户目录'),
+})
+rows.update({
+    'diagnostic.operation.account.stop': ('Stopping account client', '停止账户客户端'),
+    'diagnostic.operation.app.quit': ('Quitting CodexM', '退出 CodexM'),
+    'diagnostic.operation.storage.lock': ('Locking account metadata', '锁定账户元数据'),
+    'diagnostic.operation.handoff.transcript': ('Reading source conversation', '读取来源会话'),
+    'diagnostic.operation.runtime.inspect': ('Inspecting official client', '检查官方客户端'),
+    'diagnostic.operation.account.authMetadata': ('Checking login metadata', '检查登录元数据'),
+})
+rows.update({
+    'diagnostic.migrationRecord': ('A migration record could not be decoded. Keep the migration folder and backup; do not delete it or start another import into this account before investigation.', '迁移记录无法解析。请保留迁移目录和备份，排查前勿删除或向该账户再次导入。'),
+    'native.stage.history': ('Reading migration records', '读取迁移记录'),
 })
 output = {"sourceLanguage": "en", "strings": {key: {"extractionState": "manual", "localizations": {lang: {"stringUnit": {"state": "translated", "value": value}} for lang, value in zip(['en','zh-Hans'], pair)}} for key, pair in sorted(rows.items())}, "version": "1.0"}
 path = Path(__file__).resolve().parents[1] / 'CodexM/Resources/Localizable.xcstrings'

@@ -27,7 +27,10 @@ actor HandoffStore {
         guard FileManager.default.fileExists(atPath: root.path) else { return [] }
         return try FileManager.default.contentsOfDirectory(at: root, includingPropertiesForKeys: nil)
             .filter { UUID(uuidString: $0.lastPathComponent) != nil }
-            .compactMap { try? read(directory: $0) }
+            .compactMap { directory in
+                do { return try read(directory: directory) }
+                catch { DiagnosticJournal.record(AppFailure.capture(error, operation: "handoff.history"), coalesce: true); return nil }
+            }
             .sorted { $0.manifest.createdAt > $1.manifest.createdAt }.prefix(50).map { $0 }
     }
     func update(_ package: HandoffPackage, status: HandoffStatus) throws -> HandoffPackage {

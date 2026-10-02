@@ -10,7 +10,12 @@ enum NativeMigrationError: String, Error, LocalizedError {
 struct NativeMigrationDiagnostic: Error, LocalizedError, Codable, Sendable {
     let stage: String
     let code: String
-    var errorDescription: String? { L10n.text("native.error.diagnostic", L10n.text("native.stage.\(stage)"), code) }
+    var reference: UUID? = UUID()
+    var timestamp: Date? = Date()
+    var extendedCode: Int? = nil
+    var systemCode: Int? = nil
+    var database: String? = nil
+    var errorDescription: String? { AppFailure.capture(self, operation: "native." + stage).errorDescription }
 }
 
 struct NativeEvidence: Codable, Sendable, Equatable {
@@ -37,6 +42,7 @@ struct NativeMigrationRecord: Codable, Identifiable, Sendable {
     var evidence: NativeEvidence?
     var diagnostic: NativeMigrationDiagnostic?
     var loadedRolloutHash: String?
+    var failure: AppFailure?
     var failureCode: String?
     var containsCredentials = false
 }

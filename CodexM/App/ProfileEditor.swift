@@ -32,7 +32,7 @@ struct ProfileEditor: View {
     }
     private func save() {
         guard !saving else { return }
-        do { _ = try Profile.validatedName(name) } catch { validation = error.localizedDescription; return }
+        do { _ = try Profile.validatedName(name) } catch { validation = model.diagnosticMessage(error, operation: "account.save"); return }
         saving = true
         Task {
             if await model.saveProfile(existing: existing, name: name, launchOnStartup: launchOnStartup, restoreOnLaunch: restoreOnLaunch) { dismiss() }

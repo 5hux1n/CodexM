@@ -10,7 +10,7 @@ extension AppModel {
     }
 
     func launch(_ profile: Profile) async {
-        guard !previewMode else { report(CodexMError.unavailable); return }
+        guard !previewMode else { report(CodexMError.unavailable, operation: "account.launch"); return }
         guard ready, !isQuitting, !metadataMutation, let profile = profiles.first(where: { $0.id == profile.id }), !busyProfiles.contains(profile.id), !state(profile).isActive else { return }
         // This reservation precedes the first suspension. Every entry point uses it.
         busyProfiles.insert(profile.id); states[profile.id] = .launching
@@ -45,7 +45,7 @@ extension AppModel {
             await refreshWindows()
             refreshWindowsAfterCreation(profileID: profile.id, identity: identity, previousCount: 0)
             Log.process.info("Launched a managed instance")
-        } catch { states[profile.id] = .error; report(error) }
+        } catch { states[profile.id] = .error; report(error, operation: "account.launch") }
     }
 
     func focus(_ profile: Profile, windowID: UUID? = nil, reportFailure: Bool = true) async {
@@ -55,7 +55,7 @@ extension AppModel {
         menuPanelCloser?()
         do { _ = try await focusWindow(profile, windowID: windowID, requestSerial: requestSerial) }
         catch is CancellationError { }
-        catch { if reportFailure { report(error) } }
+        catch { if reportFailure { report(error, operation: "window.focus") } }
     }
 
     private func focusWindow(_ profile: Profile, windowID: UUID?, requestSerial: UInt64? = nil) async throws -> (ProcessIdentity, UUID, CGRect)? {
@@ -118,14 +118,14 @@ extension AppModel {
                     self.windowHighlight.show(quartzFrame: frame)
                 }
             } catch is CancellationError { }
-              catch { if !Task.isCancelled { self.windowHighlight.hide(); onFailure(error.localizedDescription) } }
+              catch { if !Task.isCancelled { self.windowHighlight.hide(); onFailure(self.diagnosticMessage(error, operation: "window.preview")) } }
         }
     }
 
     func newWindow(_ profile: Profile) async {
         menuPanelCloser?()
         refreshAccessibility()
-        guard accessibilityGranted else { report(CodexMError.accessibilityDenied); return }
+        guard accessibilityGranted else { report(CodexMError.accessibilityDenied, operation: "window.create"); return }
         guard let instance = instances[profile.id], instance.state == .running else { return }
         let count = windows[profile.id]?.count ?? 0
         do {
@@ -133,14 +133,14 @@ extension AppModel {
             try await windowService.newWindow(identity: instance.identity)
             refreshWindowsAfterCreation(profileID: profile.id, identity: instance.identity, previousCount: count)
         }
-        catch { report(error) }
+        catch { report(error, operation: "window.create") }
     }
 
     func stop(_ profile: Profile, restart: Bool = false, force: Bool = false) async {
         guard let instance = instances[profile.id], !busyProfiles.contains(profile.id) else { return }
         // Never stop an ambiguously shared process, even if stale records map it twice.
         guard !instances.contains(where: { $0.key != profile.id && $0.value.pid == instance.pid }) else {
-            report(CodexMError.ambiguousInstance); return
+            report(CodexMError.ambiguousInstance, operation: "account.stop"); return
         }
         busyProfiles.insert(profile.id); terminationRequests.insert(profile.id)
         states[profile.id] = .terminating; instances[profile.id]?.state = .terminating
@@ -153,7 +153,7 @@ extension AppModel {
         let requested = await runtimeService.terminate(instance.identity, profile: profile, root: dataRoot, force: force)
         if !requested {
             busyProfiles.remove(profile.id); states[profile.id] = .running; instances[profile.id]?.state = .running
-            terminationRequests.remove(profile.id); report(CodexMError.terminationFailed); return
+            terminationRequests.remove(profile.id); report(CodexMError.terminationFailed, operation: "account.stop"); return
         }
         for _ in 0..<40 {
             if !(await runtimeService.matches(instance.identity)) { break }
@@ -162,6 +162,7 @@ extension AppModel {
         let alive = await runtimeService.matches(instance.identity)
         busyProfiles.remove(profile.id)
         if alive {
+            DiagnosticJournal.record(AppFailure(id: UUID(), timestamp: Date(), code: "CM-PROCESS-stopTimeout", operation: "account.stop", messageKey: "error.terminationFailed", technical: "timeoutSeconds=10"))
             states[profile.id] = .running; instances[profile.id]?.state = .running
             timedOutProfiles.insert(profile.id); terminationRequests.remove(profile.id)
             if !isQuitting { forceQuitProfile = profile; openDashboard() }
@@ -178,6 +179,7 @@ extension AppModel {
         }
         guard let instance = instances[profileID], instance.pid == pid, instance.id == instanceID else { return }
         let crashed = !terminationRequests.contains(profileID) && (signal || status != 0)
+        if crashed { DiagnosticJournal.record(AppFailure(id: UUID(), timestamp: Date(), code: signal ? "CM-PROCESS-signal-\(status)" : "CM-PROCESS-exit-\(status)", operation: "account.exit", messageKey: "diagnostic.processExit", technical: "status=\(status); signal=\(signal)")) }
         await forgetInstance(profileID: profileID, expected: instance.identity, crashed: crashed)
     }
 
@@ -207,7 +209,7 @@ extension AppModel {
             if busyProfiles.isEmpty && !metadataMutation { break }
             try? await Task.sleep(for: .milliseconds(250))
         }
-        guard busyProfiles.isEmpty, !metadataMutation else { isQuitting = false; report(CodexMError.profileBusy); return false }
+        guard busyProfiles.isEmpty, !metadataMutation else { isQuitting = false; report(CodexMError.profileBusy, operation: "app.quit"); return false }
         let restoreAfterQuit = Set(instances.keys)
         preferences.previouslyRunning = restoreAfterQuit
         guard await persist() else { isQuitting = false; return false }

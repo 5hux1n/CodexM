@@ -9,8 +9,10 @@ actor ThreadStore {
         guard FileManager.default.fileExists(atPath: url.path) else { throw CodexMError.handoffNoDatabase }
         guard url.resolvingSymlinksInPath().path == url.path else { throw CodexMError.unsafePath }
         var db: OpaquePointer?
-        guard sqlite3_open_v2(url.path, &db, SQLITE_OPEN_READONLY | SQLITE_OPEN_NOMUTEX, nil) == SQLITE_OK, let db else {
-            if let db { sqlite3_close(db) }; throw CodexMError.handoffDatabase
+        let opened = sqlite3_open_v2(url.path, &db, SQLITE_OPEN_READONLY | SQLITE_OPEN_NOMUTEX, nil)
+        guard opened == SQLITE_OK, let db else {
+            let error = NativeMigrationDiagnostic(stage: "taskList", code: "sqlite-open-\(opened)", extendedCode: db.map { Int(sqlite3_extended_errcode($0)) }, systemCode: db.map { Int(sqlite3_system_errno($0)) }, database: "state_5.sqlite")
+            if let db { sqlite3_close(db) }; throw error
         }
         defer { sqlite3_close(db) }
         sqlite3_busy_timeout(db, 700)
@@ -31,13 +33,18 @@ actor ThreadStore {
     }
     private func rows(_ db: OpaquePointer, _ sql: String) throws -> [[String]] {
         var statement: OpaquePointer?
-        guard sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK, let statement else { throw CodexMError.handoffSchema }
+        let prepared = sqlite3_prepare_v2(db, sql, -1, &statement, nil)
+        guard prepared == SQLITE_OK, let statement else {
+            let error = NativeMigrationDiagnostic(stage: "taskList", code: "sqlite-prepare-\(prepared)", extendedCode: Int(sqlite3_extended_errcode(db)), systemCode: Int(sqlite3_system_errno(db)), database: "state_5.sqlite")
+            if let statement { sqlite3_finalize(statement) }
+            throw error
+        }
         defer { sqlite3_finalize(statement) }
         var result: [[String]] = []
         while true {
             let status = sqlite3_step(statement)
             if status == SQLITE_DONE { return result }
-            guard status == SQLITE_ROW else { throw CodexMError.handoffDatabase }
+            guard status == SQLITE_ROW else { throw NativeMigrationDiagnostic(stage: "taskList", code: "sqlite-step-\(status)", extendedCode: Int(sqlite3_extended_errcode(db)), systemCode: Int(sqlite3_system_errno(db)), database: "state_5.sqlite") }
             result.append((0..<sqlite3_column_count(statement)).map { index in
                 guard let bytes = sqlite3_column_text(statement, index) else { return "" }
                 // Bound unexpected values from an evolving schema.

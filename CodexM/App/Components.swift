@@ -70,6 +70,7 @@ struct Presentations: ViewModifier {
             .sheet(item: $model.editingProfile) { ProfileEditor(model: model, existing: $0) }
             .sheet(item: $model.windowPickerProfile) { profile in WindowPicker(model: model, profile: profile) }
             .alert(model.text("error.title"), isPresented: Binding(get: { model.errorMessage != nil }, set: { if !$0 { model.errorMessage = nil } })) {
+                Button(model.text("diagnostics.copy")) { _ = model.copyDiagnostics() }
                 Button(model.text("action.ok"), role: .cancel) { model.errorMessage = nil }
             } message: { Text(model.errorMessage ?? "") }
             .confirmationDialog(model.text("delete.title"), isPresented: Binding(get: { model.deletingProfile != nil }, set: { if !$0 { model.deletingProfile = nil } }), titleVisibility: .visible) {

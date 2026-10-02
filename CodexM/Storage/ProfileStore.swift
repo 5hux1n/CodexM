@@ -26,7 +26,12 @@ actor ProfileStore {
         let lease = root.appendingPathComponent("manager.lock")
         guard !isSymlink(lease) else { throw CodexMError.unsafePath }
         lockFD = open(lease.path, O_CREAT | O_RDWR | O_NOFOLLOW, 0o600)
-        guard lockFD >= 0, flock(lockFD, LOCK_EX | LOCK_NB) == 0 else { throw CodexMError.storageLocked }
+        guard lockFD >= 0 else { throw AppFailure.capture(NSError(domain: NSPOSIXErrorDomain, code: Int(errno)), operation: "storage.lock") }
+        if flock(lockFD, LOCK_EX | LOCK_NB) != 0 {
+            let status = errno
+            if status == EWOULDBLOCK { throw CodexMError.storageLocked }
+            throw AppFailure.capture(NSError(domain: NSPOSIXErrorDomain, code: Int(status)), operation: "storage.lock")
+        }
         let file = root.appendingPathComponent("profiles.json")
         if FileManager.default.fileExists(atPath: file.path) {
             guard !isSymlink(file) else { throw CodexMError.unsafePath }
@@ -37,7 +42,7 @@ actor ProfileStore {
                     _ = try Profile.validatedName(profile.name)
                     guard profile.origin == nil || (profile.isInstalledDefault && profile.id == Profile.installedDefaultID) else { throw CodexMError.corruptStorage }
                 }
-            } catch { throw CodexMError.corruptStorage }
+            } catch { throw AppFailure.capture(error, operation: "storage.load") }
         }
         try ensureDirectory(root.appendingPathComponent("Profiles", isDirectory: true))
         loaded = true
@@ -54,7 +59,7 @@ actor ProfileStore {
             try data.write(to: url, options: .atomic)
             try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
             current = state
-        } catch { throw CodexMError.filesystemError }
+        } catch { throw AppFailure.capture(error, operation: "storage.save") }
     }
 
     func prepare(_ profile: Profile) throws {
@@ -94,7 +99,7 @@ actor ProfileStore {
                 if let trashed { try? FileManager.default.moveItem(at: trashed, to: original) }
                 throw error
             }
-        } catch { throw CodexMError.filesystemError }
+        } catch { throw AppFailure.capture(error, operation: "account.delete") }
     }
 
     func validateTree(_ profile: Profile) throws {
@@ -151,7 +156,7 @@ actor ProfileStore {
             let attributes = try FileManager.default.attributesOfItem(atPath: url.path)
             guard attributes[.type] as? FileAttributeType == .typeDirectory else { throw CodexMError.unsafePath }
         } catch let error as CodexMError { throw error }
-        catch { throw CodexMError.filesystemError }
+        catch { throw AppFailure.capture(error, operation: "storage.directory") }
     }
     private func isSymlink(_ url: URL) -> Bool {
         (try? FileManager.default.attributesOfItem(atPath: url.path)[.type] as? FileAttributeType) == .typeSymbolicLink

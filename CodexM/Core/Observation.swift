@@ -27,6 +27,7 @@ extension AppModel {
             if !instance.recovered {
                 if let exit = await runtimeService.exitOutcome(pid: instance.pid) {
                     let crashed = !terminationRequests.contains(id) && (exit.signaled || exit.status != 0)
+                    if crashed { DiagnosticJournal.record(AppFailure(id: UUID(), timestamp: Date(), code: exit.signaled ? "CM-PROCESS-signal-\(exit.status)" : "CM-PROCESS-exit-\(exit.status)", operation: "account.exit", messageKey: "diagnostic.processExit", technical: "status=\(exit.status); signal=\(exit.signaled)")) }
                     await forgetInstance(profileID: id, expected: instance.identity, crashed: crashed)
                 } else if let current = await runtimeService.currentIdentity(pid: instance.pid), current != instance.identity {
                     // A changed identity is quarantined, never controlled as the old instance.

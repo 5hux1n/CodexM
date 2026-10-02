@@ -18,12 +18,12 @@ extension AppModel {
             guard await persist() else { profiles = previous; return false }
             Log.profile.info("Saved profile metadata")
             return true
-        } catch { report(error); return false }
+        } catch { report(error, operation: "account.save"); return false }
     }
 
     func delete(_ profile: Profile) async {
-        guard !profile.isInstalledDefault else { report(CodexMError.defaultAccountProtected); return }
-        guard ready, !metadataMutation, !busyProfiles.contains(profile.id), !state(profile).isActive, !isQuitting else { report(CodexMError.profileBusy); return }
+        guard !profile.isInstalledDefault else { report(CodexMError.defaultAccountProtected, operation: "account.delete"); return }
+        guard ready, !metadataMutation, !busyProfiles.contains(profile.id), !state(profile).isActive, !isQuitting else { report(CodexMError.profileBusy, operation: "account.delete"); return }
         metadataMutation = true; busyProfiles.insert(profile.id)
         defer { metadataMutation = false; busyProfiles.remove(profile.id) }
         do {
@@ -43,7 +43,7 @@ extension AppModel {
             persisting = false
             await persist()
             Log.profile.info("Moved a stopped profile to Trash")
-        } catch { report(error) }
+        } catch { report(error, operation: "account.delete") }
     }
 
     var accountDataDirectory: URL { preferences.accountDataDirectory.map { URL(fileURLWithPath: $0) } ?? dataRoot.appendingPathComponent("Profiles") }
@@ -57,7 +57,7 @@ extension AppModel {
     }
 
     func relocateAccounts(to url: URL) async {
-        guard ready, !metadataMutation, !isQuitting, busyProfiles.isEmpty else { report(CodexMError.profileBusy); return }
+        guard ready, !metadataMutation, !isQuitting, busyProfiles.isEmpty else { report(CodexMError.profileBusy, operation: "account.relocate"); return }
         metadataMutation = true; relocatingAccounts = true
         defer { metadataMutation = false; relocatingAccounts = false }
         do {
@@ -69,7 +69,7 @@ extension AppModel {
             let state = StoredState(profiles: profiles, preferences: preferences, runtimeRecords: records)
             let updated = try await store.relocateAccounts(to: url, saving: state)
             profiles = updated.profiles; preferences = updated.preferences
-        } catch { report(error) }
+        } catch { report(error, operation: "account.relocate") }
         if needsSave { await persist() }
     }
 

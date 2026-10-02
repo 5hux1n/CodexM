@@ -4,6 +4,7 @@ import ServiceManagement
 struct SettingsView: View {
     @Bindable var model: AppModel
     @State private var dropTargeted = false
+    @State private var diagnosticsCopied = false
     var body: some View {
         VStack(spacing: 0) {
         Form {
@@ -20,6 +21,13 @@ struct SettingsView: View {
                     Text(model.text("language.zhHans")).tag(AppLanguage.zhHans)
                 }
             }.disabled(!model.ready)
+            Section(model.text("diagnostics.title")) {
+                Text(model.text("diagnostic.privacy")).font(.caption).foregroundStyle(.secondary)
+                Button(model.text(diagnosticsCopied ? "diagnostics.copied" : "diagnostics.copy")) {
+                    diagnosticsCopied = model.copyDiagnostics()
+                    if !diagnosticsCopied { model.report(CodexMError.unavailable, operation: "clipboard") }
+                }
+            }
             Section(model.text("settings.runtime")) {
                 Text(model.text("runtime.dropHint")).font(.caption).foregroundStyle(.secondary)
                 LabeledContent(model.text("runtime.version"), value: model.runtime?.fingerprint ?? model.text("runtime.missing"))
@@ -64,7 +72,7 @@ struct SettingsView: View {
         .overlay { RoundedRectangle(cornerRadius: 12).stroke(dropTargeted ? Color.accentColor : .clear, lineWidth: 3).allowsHitTesting(false) }
         .dropDestination(for: URL.self) { urls, _ in
             guard model.ready, urls.count == 1, let url = urls.first, url.isFileURL else { return false }
-            Task { do { try await model.selectRuntime(url) } catch { model.report(error) } }
+            Task { do { try await model.selectRuntime(url) } catch { model.report(error, operation: "runtime.select") } }
             return true
         } isTargeted: { dropTargeted = $0 }
         .task {

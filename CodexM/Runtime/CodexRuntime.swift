@@ -22,7 +22,11 @@ struct OpenAICodexDesktopAdapter: CodexRuntimeAdapter {
     func inspect(appURL: URL) throws -> RuntimeInfo {
         // Read the plist afresh: Bundle caches can hide an in-place app update.
         let plistURL = appURL.appendingPathComponent("Contents/Info.plist")
-        guard appURL.pathExtension == "app", let data = try? Data(contentsOf: plistURL),
+        guard appURL.pathExtension == "app" else { throw CodexMError.incompatibleRuntime }
+        let data: Data
+        do { data = try Data(contentsOf: plistURL) }
+        catch { throw AppFailure.capture(error, operation: "runtime.inspect") }
+        guard
               let info = try? PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any],
               info["CFBundleIdentifier"] as? String == "com.openai.codex",
               let name = info["CFBundleExecutable"] as? String, !name.isEmpty, !name.contains("/"), name != ".", name != ".." else { throw CodexMError.incompatibleRuntime }
@@ -42,7 +46,7 @@ struct OpenAICodexDesktopAdapter: CodexRuntimeAdapter {
         process.standardOutput = FileHandle.nullDevice
         process.standardError = FileHandle.nullDevice
         process.terminationHandler = { child in onExit(child.processIdentifier, child.terminationStatus, child.terminationReason == .uncaughtSignal) }
-        do { try process.run() } catch { throw CodexMError.launchFailed }
+        do { try process.run() } catch { throw AppFailure.capture(error, operation: "account.launch") }
         guard let identity = ProcessProbe.identity(pid: process.processIdentifier) else { throw CodexMError.launchFailed }
         return (process, identity)
     }

@@ -62,7 +62,7 @@ final class AppModel {
     @ObservationIgnored var settingsOpener: (() -> Void)?
     @ObservationIgnored var handoffOpener: (() -> Void)?
 
-    init(store: ProfileStore = ProfileStore(), runtimeService: RuntimeService = RuntimeService()) { self.store = store; self.runtimeService = runtimeService; self.handoffStore = HandoffStore(root: store.root) }
+    init(store: ProfileStore = ProfileStore(), runtimeService: RuntimeService = RuntimeService()) { self.store = store; self.runtimeService = runtimeService; self.handoffStore = HandoffStore(root: store.root); DiagnosticJournal.configure(root: store.root) }
     var dataRoot: URL { store.root }
     var compatibilityChanged: Bool { runtime.map { preferences.acknowledgedRuntimeVersion != nil && preferences.acknowledgedRuntimeVersion != $0.fingerprint } ?? false }
     var runningCount: Int { instances.values.filter { $0.state.isActive }.count }
@@ -72,10 +72,24 @@ final class AppModel {
         let value = L10n.text(key)
         return arguments.isEmpty ? value : String(format: value, locale: Locale.current, arguments: arguments)
     }
-    func report(_ error: Error) {
-        errorMessage = (error as? NativeMigrationDiagnostic)?.errorDescription ?? (error as? NativeMigrationError)?.errorDescription ?? (error as? CodexMError)?.errorDescription ?? CodexMError.unavailable.errorDescription
-        Log.ui.error("An operation could not be completed")
+    func diagnosticMessage(_ error: Error, operation: String) -> String {
+        var failure = AppFailure.capture(error, operation: operation)
+        if failure.runtimeVersion == nil { failure.runtimeVersion = runtime?.fingerprint }
+        DiagnosticJournal.record(failure)
+        return failure.errorDescription ?? text("error.unavailable")
+    }
+    func report(_ error: Error, operation: String = "app") {
+        guard !(error is CancellationError) else { return }
+        errorMessage = diagnosticMessage(error, operation: operation)
         openDashboard()
+    }
+    func copyDiagnostics() -> Bool {
+        let info = Bundle.main.infoDictionary ?? [:]
+        let header = "CodexM \(info["CFBundleShortVersionString"] as? String ?? "?") (\(info["CFBundleVersion"] as? String ?? "?"))\nmacOS \(ProcessInfo.processInfo.operatingSystemVersionString)\nOfficial client: \(runtime?.fingerprint ?? "unknown")\nAccessibility: \(accessibilityGranted)"
+        let encoder = JSONEncoder(); encoder.outputFormatting = [.prettyPrinted, .sortedKeys]; encoder.dateEncodingStrategy = .iso8601
+        let records = (try? encoder.encode(DiagnosticJournal.snapshot())).flatMap { String(data: $0, encoding: .utf8) } ?? "[]"
+        NSPasteboard.general.clearContents()
+        return NSPasteboard.general.setString(header + "\n" + records, forType: .string)
     }
     func openDashboard() { menuPanelCloser?(); dashboardOpener?() }
     func openSettings() { menuPanelCloser?(); settingsOpener?() }
@@ -101,7 +115,7 @@ final class AppModel {
                     await self.refresh()
                 }
             }
-        } catch { loadFailed = true; report(error) }
+        } catch { loadFailed = true; report(error, operation: "storage.load") }
     }
 
     func detectRuntime() async {
@@ -144,7 +158,7 @@ final class AppModel {
             needsSave = false
             let snapshot = StoredState(profiles: profiles, preferences: preferences, runtimeRecords: records)
             do { try await store.save(snapshot); storageError = false }
-            catch { storageError = true; report(error); return false }
+            catch { storageError = true; report(error, operation: "storage.save"); return false }
         }
         return true
     }
@@ -171,7 +185,7 @@ final class AppModel {
     func setLoginItem(_ enabled: Bool) async {
         do {
             if enabled { try SMAppService.mainApp.register() } else { try await SMAppService.mainApp.unregister() }
-        } catch { report(CodexMError.loginItemFailed) }
+        } catch { report(AppFailure.capture(error, operation: "loginItem")) }
         loginItemEnabled = SMAppService.mainApp.status == .enabled
         loginItemNeedsApproval = SMAppService.mainApp.status == .requiresApproval
     }
@@ -181,7 +195,7 @@ final class AppModel {
         guard panel.runModal() == .OK, let url = panel.url else { return }
         do {
             try await selectRuntime(url)
-        } catch { report(error) }
+        } catch { report(error, operation: "runtime.select") }
     }
     func selectRuntime(_ url: URL) async throws {
         let inspected = try await runtimeService.inspect(url)

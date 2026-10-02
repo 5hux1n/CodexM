@@ -9,7 +9,7 @@ actor AuthMonitor {
             return AuthMetadata(exists: true, modified: values[.modificationDate] as? Date, size: (values[.size] as? NSNumber)?.uint64Value ?? 0)
         } catch let error as NSError where error.domain == NSCocoaErrorDomain && error.code == NSFileReadNoSuchFileError {
             return AuthMetadata(exists: false, modified: nil, size: 0)
-        } catch { return nil }
+        } catch { DiagnosticJournal.record(AppFailure.capture(error, operation: "account.authMetadata"), coalesce: true); return nil }
     }
 }
 

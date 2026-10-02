@@ -10,6 +10,7 @@ final class NativeChild {
     private let output = Pipe()
     private var buffer = Data()
     private var sequence = 0
+    private var stage = "initialize"
     init(binary: URL, arguments: [String], home: URL, cwd: URL) throws {
         process.executableURL = binary; process.arguments = arguments
         process.currentDirectoryURL = cwd
@@ -52,18 +53,19 @@ final class NativeChild {
             }
             let count = Darwin.read(output.fileHandleForReading.fileDescriptor, &bytes, bytes.count)
             if count > 0 { buffer.append(contentsOf: bytes.prefix(count)) }
-            else if count == 0 { throw NativeMigrationError.helper }
-            else if errno != EAGAIN && errno != EINTR { throw NativeMigrationError.helper }
-            if buffer.count > 64 * 1024 * 1024 { throw NativeMigrationError.helper }
+            else if count == 0 { throw NativeMigrationDiagnostic(stage: stage, code: "transport-eof") }
+            else if errno != EAGAIN && errno != EINTR { throw NativeMigrationDiagnostic(stage: stage, code: "transport-read", systemCode: Int(errno)) }
+            if buffer.count > 64 * 1024 * 1024 { throw NativeMigrationDiagnostic(stage: stage, code: "transport-outputLimit") }
             if count < 0 { Thread.sleep(forTimeInterval: 0.01) }
         }
-        throw NativeMigrationError.helper
+        throw NativeMigrationDiagnostic(stage: stage, code: "transport-timeout")
     }
     func version() throws -> String {
         String(decoding: try readLine(deadline: Date().addingTimeInterval(10)), as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
     }
     func call(_ method: String, _ params: [String: Any]) throws -> [String: Any] {
         guard ["initialize", "thread/resume", "thread/read", "thread/turns/list"].contains(method) else { throw NativeMigrationError.helper }
+        stage = ["initialize": "initialize", "thread/resume": "resume", "thread/read": "read", "thread/turns/list": "page"][method] ?? "load"
         sequence += 1; let id = sequence
         try send(["id": id, "method": method, "params": params])
         let deadline = Date().addingTimeInterval(45)
@@ -79,11 +81,11 @@ final class NativeChild {
                     let stage = ["initialize": "initialize", "thread/resume": "resume", "thread/read": "read", "thread/turns/list": "page"][method] ?? "load"
                     throw NativeMigrationDiagnostic(stage: stage, code: "RPC \((error["code"] as? Int) ?? -1)")
                 }
-                guard let result = response["result"] as? [String: Any] else { throw NativeMigrationError.helper }
+                guard let result = response["result"] as? [String: Any] else { throw NativeMigrationDiagnostic(stage: stage, code: "rpc-missingResult") }
                 return result
             }
         }
-        throw NativeMigrationError.helper
+        throw NativeMigrationDiagnostic(stage: stage, code: "rpc-timeout")
     }
     func initialize() throws {
         _ = try call("initialize", ["clientInfo": ["name": "codexm-native-migration", "version": "1.0"], "capabilities": ["experimentalApi": true]])
@@ -163,7 +165,7 @@ enum NativeHistoryLoader {
             try NativeFiles.schema(home, threadID: threadID, source: true)
             return second
         } catch let detail as NativeMigrationDiagnostic { throw detail }
-          catch { throw NativeMigrationDiagnostic(stage: stage, code: (error as? NativeMigrationError)?.rawValue ?? "localIO") }
+          catch { throw AppFailure.capture(error, operation: "native." + stage) }
     }
     static func load(binary: URL, home: URL, project: String, threadID: String, hydrate: Bool) throws -> NativeEvidence {
         let child = try NativeChild(binary: binary, arguments: ["app-server", "--stdio", "-c", "analytics.enabled=false", "-c", "mcp_servers={}", "-c", "cli_auth_credentials_store=\"file\""], home: home, cwd: home)
@@ -176,7 +178,7 @@ enum NativeHistoryLoader {
             _ = try child.call("thread/resume", ["threadId": threadID, "excludeTurns": true, "modelProvider": "openai", "approvalPolicy": "never", "sandbox": "read-only"])
         }
         let result = try child.call("thread/read", ["threadId": threadID, "includeTurns": false])
-        guard let thread = result["thread"] as? [String: Any], thread["id"] as? String == threadID else { throw NativeMigrationError.helper }
+        guard let thread = result["thread"] as? [String: Any], thread["id"] as? String == threadID else { throw NativeMigrationDiagnostic(stage: "read", code: "threadIdentityMismatch") }
         var cursor: String?
         var totalTurns = 0, totalItems = 0
         var seen: Set<String> = []
@@ -185,20 +187,20 @@ enum NativeHistoryLoader {
             var params: [String: Any] = ["threadId": threadID, "limit": 25, "itemsView": "full", "sortDirection": "asc"]
             if let cursor { params["cursor"] = cursor }
             let page = try child.call("thread/turns/list", params)
-            guard let turns = page["data"] as? [[String: Any]] else { throw NativeMigrationError.helper }
+            guard let turns = page["data"] as? [[String: Any]] else { throw NativeMigrationDiagnostic(stage: "page", code: "missingTurns") }
             totalTurns += turns.count
             for turn in turns {
-                guard let items = turn["items"] as? [[String: Any]] else { throw NativeMigrationError.helper }
+                guard let items = turn["items"] as? [[String: Any]] else { throw NativeMigrationDiagnostic(stage: "page", code: "missingItems") }
                 totalItems += items.count
                 hasher.update(data: try JSONSerialization.data(withJSONObject: turn, options: [.sortedKeys]))
             }
             cursor = page["nextCursor"] as? String
             if cursor == nil {
-                guard totalTurns > 0, totalItems > 0 else { throw NativeMigrationError.helper }
+                guard totalTurns > 0, totalItems > 0 else { throw NativeMigrationDiagnostic(stage: "page", code: "emptyHistory") }
                 return NativeEvidence(turns: totalTurns, items: totalItems, historyHash: hasher.finalize().map { String(format: "%02x", $0) }.joined())
             }
-            guard seen.insert(cursor!).inserted else { throw NativeMigrationError.helper }
+            guard seen.insert(cursor!).inserted else { throw NativeMigrationDiagnostic(stage: "page", code: "repeatedCursor") }
         }
-        throw NativeMigrationError.helper
+        throw NativeMigrationDiagnostic(stage: "page", code: "pageLimit")
     }
 }

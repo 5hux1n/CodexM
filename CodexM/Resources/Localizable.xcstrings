@@ -868,6 +868,805 @@
         }
       }
     },
+    "diagnostic.databaseAccess": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cannot open the task database or its related files. Close the relevant client if it is accessing these files. Allow CodexM to access the account data when macOS asks, then retry. This code alone does not indicate an incompatible format."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法打开任务数据库或关联文件。若对应客户端正使用这些文件，请先关闭；若 macOS 提示访问其他应用的数据，请允许 CodexM 访问后重试。此错误码本身不代表格式不兼容。"
+          }
+        }
+      }
+    },
+    "diagnostic.databaseBusy": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The task database is locked or busy. Stop the relevant client, wait for it to exit, then retry. Do not delete database lock or journal files."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "任务数据库正被占用或锁定。请停止对应客户端，等待进程退出后重试。不要删除数据库锁或日志文件。"
+          }
+        }
+      }
+    },
+    "diagnostic.databaseDamaged": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SQLite could not recognize the database contents or detected damage. Keep the original files and migration backup; do not overwrite or delete them. Copy diagnostics for investigation."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SQLite 无法识别数据库内容或检测到损坏。请保留原文件和迁移备份，勿覆盖或删除，并复制诊断信息排查。"
+          }
+        }
+      }
+    },
+    "diagnostic.databaseFailure": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A database query failed. Copy diagnostics so its operation and SQLite codes can be checked; the error alone does not confirm a format change."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "数据库查询失败。请复制诊断信息，以便核对操作阶段与 SQLite 错误码；此报错尚不能确认格式发生变化。"
+          }
+        }
+      }
+    },
+    "diagnostic.details": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Code: %@\nOperation: %@\nReference: %@"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "错误码：%@\n阶段：%@\n定位编号：%@"
+          }
+        }
+      }
+    },
+    "diagnostic.diskFull": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The storage device has insufficient free space. Free space on the account-data and handoff-package volumes, then retry."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "存储设备剩余空间不足。请清理账户数据及接力包所在磁盘的空间后重试。"
+          }
+        }
+      }
+    },
+    "diagnostic.fileAccess": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Access to local data was denied. Allow the system data-access prompt if shown and check the directory permissions, then retry. Accessibility permission controls windows and does not grant data access."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "本机数据访问被拒绝。若出现系统数据访问提示，请允许，并检查目录权限后重试。辅助功能权限用于控制窗口，不等于数据访问权限。"
+          }
+        }
+      }
+    },
+    "diagnostic.fileMissing": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A required file or directory could not be found. Confirm the selected client and account data location still exist, then retry."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "找不到所需文件或目录。请确认所选客户端及账户数据位置仍存在后重试。"
+          }
+        }
+      }
+    },
+    "diagnostic.migrationRecord": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A migration record could not be decoded. Keep the migration folder and backup; do not delete it or start another import into this account before investigation."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "迁移记录无法解析。请保留迁移目录和备份，排查前勿删除或向该账户再次导入。"
+          }
+        }
+      }
+    },
+    "diagnostic.nativeFailure": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The official history service could not complete this step. Copy diagnostics and keep any migration backup for investigation."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "官方历史服务未能完成此步骤。请复制诊断信息，并保留已有迁移备份以便定位。"
+          }
+        }
+      }
+    },
+    "diagnostic.operation.account.authMetadata": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Checking login metadata"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "检查登录元数据"
+          }
+        }
+      }
+    },
+    "diagnostic.operation.account.delete": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Deleting account"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "删除账户"
+          }
+        }
+      }
+    },
+    "diagnostic.operation.account.exit": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Client exit"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "客户端退出"
+          }
+        }
+      }
+    },
+    "diagnostic.operation.account.launch": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Starting account client"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "启动账户客户端"
+          }
+        }
+      }
+    },
+    "diagnostic.operation.account.relocate": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Moving account data"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "迁移账户数据目录"
+          }
+        }
+      }
+    },
+    "diagnostic.operation.account.save": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saving account"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "保存账户"
+          }
+        }
+      }
+    },
+    "diagnostic.operation.account.stop": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stopping account client"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "停止账户客户端"
+          }
+        }
+      }
+    },
+    "diagnostic.operation.app": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Application operation"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "应用操作"
+          }
+        }
+      }
+    },
+    "diagnostic.operation.app.quit": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quitting CodexM"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "退出 CodexM"
+          }
+        }
+      }
+    },
+    "diagnostic.operation.clipboard": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copying diagnostics"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "复制诊断信息"
+          }
+        }
+      }
+    },
+    "diagnostic.operation.handoff.history": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Refreshing handoff records"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "刷新接力记录"
+          }
+        }
+      }
+    },
+    "diagnostic.operation.handoff.launch": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Starting handoff target"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "启动接力目标"
+          }
+        }
+      }
+    },
+    "diagnostic.operation.handoff.prepare": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Preparing handoff context"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "生成接力上下文"
+          }
+        }
+      }
+    },
+    "diagnostic.operation.handoff.project": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Checking project directory"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "检查项目目录"
+          }
+        }
+      }
+    },
+    "diagnostic.operation.handoff.save": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saving handoff package"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "保存接力包"
+          }
+        }
+      }
+    },
+    "diagnostic.operation.handoff.target": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Finding target account"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "查找目标账户"
+          }
+        }
+      }
+    },
+    "diagnostic.operation.handoff.taskList": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reading task list"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "读取任务列表"
+          }
+        }
+      }
+    },
+    "diagnostic.operation.handoff.transcript": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reading source conversation"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "读取来源会话"
+          }
+        }
+      }
+    },
+    "diagnostic.operation.handoff.update": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Updating handoff package"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "更新接力包"
+          }
+        }
+      }
+    },
+    "diagnostic.operation.loginItem": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Updating login item"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "更改登录项"
+          }
+        }
+      }
+    },
+    "diagnostic.operation.runtime.inspect": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Inspecting official client"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "检查官方客户端"
+          }
+        }
+      }
+    },
+    "diagnostic.operation.runtime.select": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Selecting official client"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "选择官方客户端"
+          }
+        }
+      }
+    },
+    "diagnostic.operation.storage.directory": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Preparing account directory"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "准备账户目录"
+          }
+        }
+      }
+    },
+    "diagnostic.operation.storage.load": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Loading account metadata"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "读取账户元数据"
+          }
+        }
+      }
+    },
+    "diagnostic.operation.storage.lock": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Locking account metadata"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "锁定账户元数据"
+          }
+        }
+      }
+    },
+    "diagnostic.operation.storage.save": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saving account metadata"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "保存账户元数据"
+          }
+        }
+      }
+    },
+    "diagnostic.operation.window.create": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Creating window"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "新建窗口"
+          }
+        }
+      }
+    },
+    "diagnostic.operation.window.focus": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Focusing window"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "聚焦窗口"
+          }
+        }
+      }
+    },
+    "diagnostic.operation.window.preview": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Previewing window"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "预览窗口"
+          }
+        }
+      }
+    },
+    "diagnostic.privacy": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copy app/client versions and up to 100 recent error codes, operations, timestamps and references. Account names, paths, credentials and conversation contents are excluded."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "复制应用与客户端版本，以及最近最多 100 条错误的代码、阶段、时间和定位编号。不包含账户名称、路径、凭据或对话内容。"
+          }
+        }
+      }
+    },
+    "diagnostic.processExit": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The managed client exited abnormally. The exit status or signal is available in diagnostics."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "受管理的客户端异常退出，诊断信息中保留了退出状态或信号。"
+          }
+        }
+      }
+    },
+    "diagnostic.targetMayChanged": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Target task storage may have changed. Keep the migration backup and use the recorded recovery or rollback action before another import."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "目标任务存储可能已发生变化。请保留迁移备份，并先使用记录中的恢复或回滚操作，再重新导入。"
+          }
+        }
+      }
+    },
+    "diagnostic.targetUntouched": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This attempt stopped before task-history import. No task history was imported into the target."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "本次在任务历史导入前停止，尚未向目标账户导入任务历史。"
+          }
+        }
+      }
+    },
+    "diagnostic.unexpected": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This operation failed for an unclassified reason. Copy diagnostics; the system code and operation are retained without private error text."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "此操作因未分类原因失败。请复制诊断信息，其中保留了系统错误码与操作阶段，不包含私人错误原文。"
+          }
+        }
+      }
+    },
+    "diagnostics.copied": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diagnostics Copied"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "诊断信息已复制"
+          }
+        }
+      }
+    },
+    "diagnostics.copy": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copy Diagnostics"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "复制诊断信息"
+          }
+        }
+      }
+    },
+    "diagnostics.title": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diagnostics"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "诊断信息"
+          }
+        }
+      }
+    },
     "edit.copy": {
       "extractionState": "manual",
       "localizations": {
@@ -1027,13 +1826,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The metadata file is unreadable or has an unsupported format. It has not been overwritten. Restore a valid metadata backup and reopen CodexM."
+            "value": "Account metadata could not be decoded or its structure is unsupported. Keep profiles.json; do not replace it with an empty file. Recover a valid copy or share diagnostics."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "元数据文件无法读取或格式不受支持。文件未被覆盖。请恢复有效的元数据备份后重新打开 CodexM。"
+            "value": "账户元数据无法解析或结构不受支持。请保留 profiles.json，勿用空文件覆盖；可恢复有效副本或提供诊断信息排查。"
           }
         }
       }
@@ -1078,13 +1877,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The local data operation failed. Check folder permissions and free disk space."
+            "value": "A local file operation failed. Copy diagnostics to distinguish access, missing-file and storage errors before changing files."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "本机数据操作失败。请检查目录权限和磁盘空间。"
+            "value": "本机文件操作失败。请复制诊断信息，区分访问权限、文件缺失与存储错误后再处理文件。"
           }
         }
       }
@@ -1129,13 +1928,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Could not read or save the handoff package. Check directory permissions and free space."
+            "value": "The handoff package is incomplete, unreadable or uses an unsupported format. Keep the package and copy diagnostics before regenerating it."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "无法读取或保存接力包，请检查目录权限和磁盘空间。"
+            "value": "接力包不完整、无法读取或格式不受支持。请保留接力包并复制诊断信息，再重新生成。"
           }
         }
       }
@@ -1146,13 +1945,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The project directory no longer exists. The package is retained; locate the project before continuing."
+            "value": "The project directory cannot be found or accessed. Restore access to the original project before continuing; retain any existing handoff package."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "原项目目录已不存在，接力包仍然保留。请找到项目目录后再继续。"
+            "value": "找不到原项目目录或无法访问。请恢复原项目目录的访问后继续，并保留已有接力包。"
           }
         }
       }
@@ -1367,13 +2166,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Another CodexM process is using this data folder, or the folder cannot be locked. Use the existing CodexM or check folder permissions."
+            "value": "Another CodexM holds the data-directory lock. Use the existing instance or close it before retrying. Do not delete manager.lock while another instance is running."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "另一个 CodexM 进程正在使用此数据目录，或目录无法锁定。请使用已有 CodexM，或检查目录权限。"
+            "value": "另一份 CodexM 持有数据目录锁。请使用已有实例或关闭后重试；其他实例运行时不要删除 manager.lock。"
           }
         }
       }
@@ -1435,13 +2234,30 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "A account path contains an unexpected symbolic link or invalid directory. No data was changed."
+            "value": "A path contains an unexpected symbolic link or invalid directory. The current step was blocked. Check the data location; retain any migration record for earlier steps."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "账户路径含有非预期的符号链接或无效目录。未更改数据。"
+            "value": "路径含有非预期符号链接或无效目录，当前步骤已阻止。请检查数据位置，并保留迁移记录以核对先前步骤。"
+          }
+        }
+      }
+    },
+    "error.windowFocusFailed": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The selected window did not become focused. Check Accessibility permission and try again."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "目标窗口未成功获得焦点，请检查辅助功能权限后重试。"
           }
         }
       }
@@ -2285,13 +3101,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Native history processing failed at %@ (code: %@). No successful import is claimed. If this happened during compatibility checking, the target was not written."
+            "value": "History processing failed at %@ (code: %@). Keep diagnostics and any existing migration backup."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "原生历史处理在“%@”阶段失败（代码：%@），未确认导入成功。若发生在兼容性试读阶段，目标账户尚未写入。"
+            "value": "历史处理在“%@”阶段失败（代码：%@）。请保留诊断信息和已有迁移备份。"
           }
         }
       }
@@ -2302,13 +3118,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The official local history loader did not complete verification. The migration record retains recovery information."
+            "value": "The official history loader could not complete loading or verification. Check the reported stage; keep any migration record and backup before retrying."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "官方本地历史加载未通过验证，迁移记录中保留了恢复信息。"
+            "value": "官方历史加载器未能完成加载或验证。请核对报错阶段，保留已有迁移记录和备份后再处理。"
           }
         }
       }
@@ -2336,13 +3152,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Migration data, paths, checksums or available disk space failed validation. No credentials will be copied."
+            "value": "Migration validation failed. Check the reported stage to identify the affected path, history, checksum or free-space check. Keep the original data."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "迁移数据、路径、校验和或可用磁盘空间检查未通过，不会复制凭据。"
+            "value": "迁移校验未通过。请根据报错阶段区分路径、历史、校验和或磁盘空间检查，并保留原数据。"
           }
         }
       }
@@ -2404,13 +3220,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "This first version supports unarchived standalone tasks only. Tasks with child tasks, goals, artifacts or dynamic tools need Context Handoff."
+            "value": "This migration mode supports unarchived independent tasks. Tasks with related subtasks, goals, artifacts or dynamic tools require Context Handoff."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "第一版支持未归档的独立任务。关联子任务、目标、附件或动态工具的任务请使用上下文接力。"
+            "value": "此迁移方式支持未归档的独立任务。包含关联子任务、目标、附件或动态工具的任务请使用上下文接力。"
           }
         }
       }
@@ -2687,6 +3503,23 @@
         }
       }
     },
+    "native.stage.backup": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Backing up target task storage"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "备份目标任务存储"
+          }
+        }
+      }
+    },
     "native.stage.compare": {
       "extractionState": "manual",
       "localizations": {
@@ -2700,6 +3533,176 @@
           "stringUnit": {
             "state": "translated",
             "value": "重启前后历史对比"
+          }
+        }
+      }
+    },
+    "native.stage.database": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Querying task database"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "查询任务数据库"
+          }
+        }
+      }
+    },
+    "native.stage.directory": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Preparing target directory"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "准备目标账户目录"
+          }
+        }
+      }
+    },
+    "native.stage.diskSpace": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Checking available disk space"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "检查可用磁盘空间"
+          }
+        }
+      }
+    },
+    "native.stage.history": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reading migration records"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "读取迁移记录"
+          }
+        }
+      }
+    },
+    "native.stage.import": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copying task history"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "复制任务历史"
+          }
+        }
+      }
+    },
+    "native.stage.importCompare": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verifying imported history"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "验证导入历史一致性"
+          }
+        }
+      }
+    },
+    "native.stage.importDatabase": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verifying imported task database"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "验证导入任务数据库"
+          }
+        }
+      }
+    },
+    "native.stage.importLoad": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Loading imported history"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "加载导入历史"
+          }
+        }
+      }
+    },
+    "native.stage.importRestart": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reading imported history after restart"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "重启后读取导入历史"
+          }
+        }
+      }
+    },
+    "native.stage.importRollout": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verifying imported history file"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "验证导入历史文件"
           }
         }
       }
@@ -2721,6 +3724,40 @@
         }
       }
     },
+    "native.stage.inventory": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Checking target task files"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "检查目标任务文件"
+          }
+        }
+      }
+    },
+    "native.stage.launch": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Starting imported task client"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "启动导入任务客户端"
+          }
+        }
+      }
+    },
     "native.stage.load": {
       "extractionState": "manual",
       "localizations": {
@@ -2734,6 +3771,40 @@
           "stringUnit": {
             "state": "translated",
             "value": "隔离历史加载"
+          }
+        }
+      }
+    },
+    "native.stage.occupancy": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Target file occupancy check"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "目标账户文件占用检查"
+          }
+        }
+      }
+    },
+    "native.stage.package": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Creating migration package"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "创建迁移包"
           }
         }
       }
@@ -2772,6 +3843,23 @@
         }
       }
     },
+    "native.stage.record": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saving migration result"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "保存迁移结果"
+          }
+        }
+      }
+    },
     "native.stage.restart": {
       "extractionState": "manual",
       "localizations": {
@@ -2806,6 +3894,23 @@
         }
       }
     },
+    "native.stage.rollback": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restoring migration backup"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "恢复迁移备份"
+          }
+        }
+      }
+    },
     "native.stage.rollout": {
       "extractionState": "manual",
       "localizations": {
@@ -2836,6 +3941,108 @@
           "stringUnit": {
             "state": "translated",
             "value": "重建数据结构检查"
+          }
+        }
+      }
+    },
+    "native.stage.sourceHistory": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Source history format check"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "源历史格式检查"
+          }
+        }
+      }
+    },
+    "native.stage.sourcePath": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Source history copy comparison"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "源历史新旧副本比较"
+          }
+        }
+      }
+    },
+    "native.stage.sourceSchema": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Source database check"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "源账户数据库检查"
+          }
+        }
+      }
+    },
+    "native.stage.targetSchema": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Target database check"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "目标账户数据库检查"
+          }
+        }
+      }
+    },
+    "native.stage.taskList": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reading task database"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "读取任务数据库"
+          }
+        }
+      }
+    },
+    "native.stage.validation": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Validating migration inputs"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "检查迁移参数"
           }
         }
       }
@@ -3792,23 +4999,6 @@
         }
       }
     },
-    "window.openCount": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%d windows open"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "已开启 %d 个窗口"
-          }
-        }
-      }
-    },
     "window.distinguished": {
       "extractionState": "manual",
       "localizations": {
@@ -3843,6 +5033,40 @@
         }
       }
     },
+    "window.focusPermissionPrefix": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Focusing windows requires "
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "聚焦窗口需要"
+          }
+        }
+      }
+    },
+    "window.hoverHint": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hover to preview a window · Click to switch"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "悬停预览窗口 · 点击切换"
+          }
+        }
+      }
+    },
     "window.note": {
       "extractionState": "manual",
       "localizations": {
@@ -3873,6 +5097,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "部分官方窗口始终返回 ChatGPT。可添加备注，在 CodexM 中区分窗口。备注仅保留至此窗口关闭；清空后恢复实时标题。"
+          }
+        }
+      }
+    },
+    "window.openCount": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%d windows open"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已开启 %d 个窗口"
           }
         }
       }
@@ -3924,142 +5165,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Codex 窗口"
-          }
-        }
-      }
-    },
-    "native.stage.sourceSchema": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Source database check"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "源账户数据库检查"
-          }
-        }
-      }
-    },
-    "native.stage.targetSchema": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Target database check"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "目标账户数据库检查"
-          }
-        }
-      }
-    },
-    "native.stage.sourcePath": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Source history copy comparison"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "源历史新旧副本比较"
-          }
-        }
-      }
-    },
-    "native.stage.sourceHistory": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Source history format check"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "源历史格式检查"
-          }
-        }
-      }
-    },
-    "native.stage.occupancy": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Target file occupancy check"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "目标账户文件占用检查"
-          }
-        }
-      }
-    },
-    "window.focusPermissionPrefix": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Focusing windows requires "
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "聚焦窗口需要"
-          }
-        }
-      }
-    },
-    "window.hoverHint": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Hover to preview a window · Click to switch"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "悬停预览窗口 · 点击切换"
-          }
-        }
-      }
-    },
-    "error.windowFocusFailed": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "The selected window did not become focused. Check Accessibility permission and try again."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "目标窗口未成功获得焦点，请检查辅助功能权限后重试。"
           }
         }
       }

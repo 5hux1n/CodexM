@@ -77,7 +77,7 @@ actor SessionReader {
         let home = home.standardizedFileURL.resolvingSymlinksInPath()
         let url = try RolloutSource.resolve(thread: thread, home: home)
         let fd = open(url.path, O_RDONLY | O_NOFOLLOW | O_NONBLOCK)
-        guard fd >= 0 else { throw CodexMError.handoffTranscript }
+        guard fd >= 0 else { throw AppFailure.capture(NSError(domain: NSPOSIXErrorDomain, code: Int(errno)), operation: "handoff.transcript") }
         let file = FileHandle(fileDescriptor: fd, closeOnDealloc: true)
         defer { try? file.close() }
         var info = stat()
