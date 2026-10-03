@@ -355,6 +355,10 @@ rows.update({
     'diagnostic.migrationRecord': ('A migration record could not be decoded. Keep the migration folder and backup; do not delete it or start another import into this account before investigation.', '迁移记录无法解析。请保留迁移目录和备份，排查前勿删除或向该账户再次导入。'),
     'native.stage.history': ('Reading migration records', '读取迁移记录'),
 })
+rows.update({
+    'native.error.busy': ('The target account client has not fully exited, or a process still holds its task files. Pausing a task or closing one window does not stop the account client. Stop the target account in CodexM and retry after it exits. The diagnostic may include the blocking PID.', '目标账户客户端尚未完全退出，或仍有进程占用任务文件。暂停任务或关闭单个窗口不等于停止账户客户端。请在 CodexM 中停止目标账户，待退出后重试；诊断信息会在可用时提供占用进程的 PID。'),
+})
+rows.update({'handoff.updatedAt': ('Updated %@', '更新于 %@')})
 output = {"sourceLanguage": "en", "strings": {key: {"extractionState": "manual", "localizations": {lang: {"stringUnit": {"state": "translated", "value": value}} for lang, value in zip(['en','zh-Hans'], pair)}} for key, pair in sorted(rows.items())}, "version": "1.0"}
 path = Path(__file__).resolve().parents[1] / 'CodexM/Resources/Localizable.xcstrings'
 path.write_text(json.dumps(output, ensure_ascii=False, indent=2) + '\n')

@@ -180,15 +180,18 @@ enum NativeFiles {
                 try SingletonLockPolicy.validate(target: target, localHostname: ProcessInfo.processInfo.hostName) { pid in
                     kill(pid, 0) == 0 || errno == EPERM
                 }
-            } catch { throw NativeMigrationError.busy }
-        } else if fm.fileExists(atPath: lock.path) { throw NativeMigrationError.busy }
+            } catch {
+                let pid = target.split(separator: "-").last.flatMap { Int32($0) }
+                throw NativeMigrationDiagnostic(stage: "occupancy", code: pid.map { "clientLock-pid-\($0)" } ?? "clientLock-unrecognized")
+            }
+        } else if fm.fileExists(atPath: lock.path) { throw NativeMigrationDiagnostic(stage: "occupancy", code: "clientLock-unrecognized") }
         guard fm.fileExists(atPath: home.path) else { return }
         // The app-server and SQLite handles can outlive the GUI process briefly.
         // Give normal shutdown a bounded grace period before reporting the account busy.
         let deadline = Date().addingTimeInterval(3)
         while true {
-            if try !hasOpenFiles(home) { return }
-            guard Date() < deadline else { throw NativeMigrationError.busy }
+            guard let occupied = try openFile(home) else { return }
+            guard Date() < deadline else { throw occupied }
             Thread.sleep(forTimeInterval: min(0.25, max(0, deadline.timeIntervalSinceNow)))
         }
     }
@@ -206,12 +209,36 @@ enum NativeFiles {
         return included(relative) || relative.hasPrefix("sqlite/") || relative.hasPrefix("thread-writer-locks/")
     }
 
-    private static func hasOpenFiles(_ home: URL) throws -> Bool {
+    /// Parse only regular file handles and memory mappings. A plugin's cwd or
+    /// a directory descriptor cannot write task storage and must not block import.
+    static func occupancy(in output: String, rootPath: String) -> NativeMigrationDiagnostic? {
+        var pid: Int32?, descriptor = "", kind = ""
+        for line in output.split(separator: "\n") {
+            let value = String(line.dropFirst())
+            switch line.first {
+            case "p": pid = Int32(value); descriptor = ""; kind = ""
+            case "f": descriptor = value; kind = ""
+            case "t": kind = value
+            case "n":
+                guard let pid, pid > 0, kind == "REG", descriptor != "cwd", descriptor != "rtd",
+                      isMigrationStorage(value, rootPath: rootPath) else { continue }
+                let relative = String(value.dropFirst(rootPath.count + 1))
+                let first = String(relative.split(separator: "/").first ?? "")
+                let known = ["state_5.sqlite", "thread_history_1.sqlite", "goals_1.sqlite", "logs_2.sqlite", "queue_1.sqlite", "memories_1.sqlite", "memories_v2_1.sqlite"]
+                let category = known.first(where: { first == $0 || first.hasPrefix($0 + "-") }) ?? (["sessions", "archived_sessions", "sqlite", "thread-writer-locks"].contains(first) ? first : "account-file")
+                return NativeMigrationDiagnostic(stage: "occupancy", code: "openFile-pid-\(pid)", database: category)
+            default: break
+            }
+        }
+        return nil
+    }
+
+    private static func openFile(_ home: URL) throws -> NativeMigrationDiagnostic? {
         let process = Process(), output = Pipe(), error = Pipe()
         process.executableURL = URL(fileURLWithPath: "/usr/sbin/lsof")
         // +D recursively walks plugin caches, can time out, and treats helper
         // executables/cwd as account occupancy. Query handles for this user instead.
-        process.arguments = ["-n", "-P", "-u", String(getuid()), "-Fpn"]
+        process.arguments = ["-n", "-P", "-u", String(getuid()), "-Fpftn"]
         process.standardOutput = output; process.standardError = error
         try process.run()
         let outFD = output.fileHandleForReading.fileDescriptor, errFD = error.fileHandleForReading.fileDescriptor
@@ -252,8 +279,6 @@ enum NativeFiles {
         }
         let canonicalHome = String(cString: resolved)
         free(resolved)
-        return String(decoding: stdout, as: UTF8.self).split(separator: "\n").contains {
-            $0.first == "n" && isMigrationStorage(String($0.dropFirst()), rootPath: canonicalHome)
-        }
+        return occupancy(in: String(decoding: stdout, as: UTF8.self), rootPath: canonicalHome)
     }
 }

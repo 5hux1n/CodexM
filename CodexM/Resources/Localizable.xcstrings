@@ -2925,6 +2925,23 @@
         }
       }
     },
+    "handoff.updatedAt": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Updated %@"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "更新于 %@"
+          }
+        }
+      }
+    },
     "language.en": {
       "extractionState": "manual",
       "localizations": {
@@ -3033,13 +3050,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The target account or its data is in use. Stop its Codex windows and try again."
+            "value": "The target account client has not fully exited, or a process still holds its task files. Pausing a task or closing one window does not stop the account client. Stop the target account in CodexM and retry after it exits. The diagnostic may include the blocking PID."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "目标账户或其数据仍在使用中，请停止目标 Codex 后重试。"
+            "value": "目标账户客户端尚未完全退出，或仍有进程占用任务文件。暂停任务或关闭单个窗口不等于停止账户客户端。请在 CodexM 中停止目标账户，待退出后重试；诊断信息会在可用时提供占用进程的 PID。"
           }
         }
       }

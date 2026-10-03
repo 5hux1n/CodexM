@@ -116,7 +116,8 @@ struct HandoffView: View {
                         Text(thread.title.isEmpty ? model.text("window.untitled") : thread.title).lineLimit(1)
                         if thread.archived { Text(model.text("handoff.archived")).font(.caption).foregroundStyle(.secondary) }
                         Spacer()
-                        Text(thread.updatedAt, style: .relative).font(.caption).foregroundStyle(.secondary)
+                        Text(String(format: model.text("handoff.updatedAt"), thread.updatedAt.formatted(date: .abbreviated, time: .shortened)))
+                            .font(.caption).foregroundStyle(.secondary)
                     }
                     Text(thread.cwd).font(.caption).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
                 }.padding(.vertical, 3).tag(thread.id)

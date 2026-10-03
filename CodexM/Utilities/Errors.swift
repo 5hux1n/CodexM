@@ -39,8 +39,9 @@ struct AppFailure: Error, LocalizedError, Codable, Sendable {
             key = "diagnostic.nativeFailure"
             if detail.code.hasPrefix("sqlite-"), let status = Int(detail.code.split(separator: "-").last ?? "") {
                 key = databaseMessage(status)
+            } else if detail.stage == "occupancy", detail.code.hasPrefix("openFile-") || detail.code.hasPrefix("clientLock-") { key = "native.error.busy"
             } else if NativeMigrationError(rawValue: detail.code) != nil { key = "native.error." + detail.code }
-            technical = [identifier(detail.code), detail.extendedCode.map { "sqliteExtended=\($0)" }, detail.systemCode.map { "errno=\($0)" }, detail.database.map { "database=" + identifier($0) }].compactMap { $0 }.joined(separator: "; ")
+            technical = [identifier(detail.code), detail.extendedCode.map { "sqliteExtended=\($0)" }, detail.systemCode.map { "errno=\($0)" }, detail.database.map { (detail.stage == "occupancy" ? "resource=" : "database=") + identifier($0) }].compactMap { $0 }.joined(separator: "; ")
         } else if let known = error as? CodexMError {
             code = "CM-APP-" + known.rawValue; key = "error." + known.rawValue
         } else if let known = error as? NativeMigrationError {
