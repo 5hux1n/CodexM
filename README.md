@@ -10,7 +10,7 @@
 
 为不同账户保留独立登录状态，从菜单栏切换窗口，并通过项目接力继续已有任务。
 
-**当前版本：1.0.1 · macOS 14+ · Apple Silicon / Intel**
+**当前版本：1.0.2 · macOS 14+ · Apple Silicon / Intel**
 
 CodexM 是独立开发的开源工具，与 OpenAI 无隶属或背书关系，不包含官方客户端。
 
@@ -30,7 +30,7 @@ export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
 open dist/CodexM.app
 ```
 
-如果 Xcode 安装在其他位置，请修改 `DEVELOPER_DIR`。构建会生成 `dist/CodexM.app`、`dist/CodexM-v1.0.1-macOS.dmg` 和 ZIP 压缩包。将应用放到固定位置后使用。
+如果 Xcode 安装在其他位置，请修改 `DEVELOPER_DIR`。构建会生成 `dist/CodexM.app`、`dist/CodexM-v1.0.2-macOS.dmg` 和 ZIP 压缩包。将应用放到固定位置后使用。
 
 当前发布包及本地构建采用 ad-hoc 签名，未经 Developer ID 签名或 Apple 公证。替换应用后，macOS 可能要求重新授予辅助功能权限。
 
