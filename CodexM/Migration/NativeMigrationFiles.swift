@@ -35,6 +35,11 @@ enum NativeFiles {
         guard !relative.contains("/") else { return false }
         return first == "session_index.jsonl" || first.range(of: #"^(?:state_5|thread_history_1|goals_1|logs_2|memories_1|queue_1)\.sqlite(?:-wal|-shm|-journal)?$"#, options: .regularExpression) != nil
     }
+    /// Stores that define task history. Auxiliary logs, queues and memories
+    /// have a separate lifecycle and cannot determine whether history imported.
+    static func taskDatabase(_ name: String) -> Bool {
+        ["state_5.sqlite", "thread_history_1.sqlite", "goals_1.sqlite"].contains(name)
+    }
     static func inventory(_ home: URL) throws -> [String: String] {
         try safe(home)
         guard fm.fileExists(atPath: home.path) else { return [:] }
@@ -100,9 +105,9 @@ enum NativeFiles {
         var db: OpaquePointer?
         func failure(_ operation: String, _ status: Int32) -> Error {
             if let diagnosticStage {
-                return NativeMigrationDiagnostic(stage: diagnosticStage, code: "sqlite-\(operation)-\(status)", extendedCode: db.map { Int(sqlite3_extended_errcode($0)) }, systemCode: db.map { Int(sqlite3_system_errno($0)) }, database: ["state_5.sqlite", "goals_1.sqlite", "thread_history_1.sqlite", "memories_v2_1.sqlite"].contains(url.lastPathComponent) ? url.lastPathComponent : "other.sqlite")
+                return NativeMigrationDiagnostic(stage: diagnosticStage, code: "sqlite-\(operation)-\(status)", extendedCode: db.map { Int(sqlite3_extended_errcode($0)) }, systemCode: db.map { Int(sqlite3_system_errno($0)) }, database: ["state_5.sqlite", "goals_1.sqlite", "thread_history_1.sqlite", "logs_2.sqlite", "memories_1.sqlite", "queue_1.sqlite", "memories_v2_1.sqlite"].contains(url.lastPathComponent) ? url.lastPathComponent : "other.sqlite")
             }
-            return NativeMigrationDiagnostic(stage: "database", code: "sqlite-\(operation)-\(status)", extendedCode: db.map { Int(sqlite3_extended_errcode($0)) }, systemCode: db.map { Int(sqlite3_system_errno($0)) }, database: ["state_5.sqlite", "goals_1.sqlite", "thread_history_1.sqlite", "memories_v2_1.sqlite"].contains(url.lastPathComponent) ? url.lastPathComponent : "other.sqlite")
+            return NativeMigrationDiagnostic(stage: "database", code: "sqlite-\(operation)-\(status)", extendedCode: db.map { Int(sqlite3_extended_errcode($0)) }, systemCode: db.map { Int(sqlite3_system_errno($0)) }, database: ["state_5.sqlite", "goals_1.sqlite", "thread_history_1.sqlite", "logs_2.sqlite", "memories_1.sqlite", "queue_1.sqlite", "memories_v2_1.sqlite"].contains(url.lastPathComponent) ? url.lastPathComponent : "other.sqlite")
         }
         let opened = sqlite3_open_v2(url.path, &db, SQLITE_OPEN_READONLY | SQLITE_OPEN_NOMUTEX, nil)
         guard opened == SQLITE_OK, let db else {

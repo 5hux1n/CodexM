@@ -151,7 +151,9 @@ actor NativeMigrationCoordinator {
                 let db = targetHome.appendingPathComponent("state_5.sqlite")
                 let rows = try NativeFiles.rows(db, "SELECT rollout_path FROM threads WHERE id=?", bindings: [thread.threadID], diagnosticStage: "importDatabase")
                 guard rows.count == 1, URL(fileURLWithPath: rows[0][0]).standardizedFileURL.resolvingSymlinksInPath() == targetHome.appendingPathComponent(relative).standardizedFileURL.resolvingSymlinksInPath() else { throw NativeMigrationError.helper }
-                for url in try NativeFiles.fm.contentsOfDirectory(at: targetHome, includingPropertiesForKeys: nil) where url.pathExtension == "sqlite" {
+                // Verify task-history stores covered by migration backup. Auxiliary stores
+                // have a separate lifecycle and must not cause a false import failure.
+                for url in try NativeFiles.fm.contentsOfDirectory(at: targetHome, includingPropertiesForKeys: nil) where NativeFiles.taskDatabase(url.lastPathComponent) {
                     guard try NativeFiles.rows(url, "PRAGMA integrity_check", diagnosticStage: "importDatabase") == [["ok"]] else { throw NativeMigrationError.helper }
                 }
                 record.evidence = second; record.status = "verified"
