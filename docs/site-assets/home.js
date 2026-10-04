@@ -1,0 +1,1 @@
+document.querySelectorAll('[data-account]').forEach(button=>button.addEventListener('click',()=>{document.querySelectorAll('[data-account]').forEach(b=>{b.classList.remove('active');b.setAttribute('aria-pressed','false')});button.classList.add('active');button.setAttribute('aria-pressed','true');document.querySelector('#account-label').textContent=button.dataset.account}));
