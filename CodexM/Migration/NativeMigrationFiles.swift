@@ -101,6 +101,30 @@ enum NativeFiles {
         try fm.setAttributes([.posixPermissions: 0o600], ofItemAtPath: dest.path)
     }
     static func rows(_ url: URL, _ sql: String, bindings: [String] = [], diagnosticStage: String? = nil) throws -> [[String]] {
+        try queryRows(url, sql, bindings: bindings, diagnosticStage: diagnosticStage, readOnly: true)
+    }
+    /// Caller must first confirm the target client has stopped. SQLite may need
+    /// to recreate WAL sidecars even for SELECTs; allow that only in a private copy.
+    static func stoppedDatabaseRows(_ url: URL, _ sql: String, bindings: [String] = [], diagnosticStage: String) throws -> [[String]] {
+        let temporary = fm.temporaryDirectory.appendingPathComponent("codexm-db-check-" + UUID().uuidString)
+        try directory(temporary)
+        defer { try? fm.removeItem(at: temporary) }
+        let family = [url] + ["-wal", "-shm", "-journal"].map { URL(fileURLWithPath: url.path + $0) }
+        var before: [String: String] = [:]
+        for file in family where file == url || fm.fileExists(atPath: file.path) {
+            before[file.lastPathComponent] = try hash(file)
+            let destination = temporary.appendingPathComponent(file.lastPathComponent)
+            try copy(file, to: destination)
+            guard try hash(destination) == before[file.lastPathComponent] else { throw NativeMigrationError.changed }
+        }
+        var after: [String: String] = [:]
+        for file in family where file == url || fm.fileExists(atPath: file.path) {
+            after[file.lastPathComponent] = try hash(file)
+        }
+        guard before == after else { throw NativeMigrationError.changed }
+        return try queryRows(temporary.appendingPathComponent(url.lastPathComponent), sql, bindings: bindings, diagnosticStage: diagnosticStage, readOnly: false)
+    }
+    private static func queryRows(_ url: URL, _ sql: String, bindings: [String], diagnosticStage: String?, readOnly: Bool) throws -> [[String]] {
         try safe(url)
         var db: OpaquePointer?
         func failure(_ operation: String, _ status: Int32) -> Error {
@@ -109,7 +133,7 @@ enum NativeFiles {
             }
             return NativeMigrationDiagnostic(stage: "database", code: "sqlite-\(operation)-\(status)", extendedCode: db.map { Int(sqlite3_extended_errcode($0)) }, systemCode: db.map { Int(sqlite3_system_errno($0)) }, database: ["state_5.sqlite", "goals_1.sqlite", "thread_history_1.sqlite", "logs_2.sqlite", "memories_1.sqlite", "queue_1.sqlite", "memories_v2_1.sqlite"].contains(url.lastPathComponent) ? url.lastPathComponent : "other.sqlite")
         }
-        let opened = sqlite3_open_v2(url.path, &db, SQLITE_OPEN_READONLY | SQLITE_OPEN_NOMUTEX, nil)
+        let opened = sqlite3_open_v2(url.path, &db, (readOnly ? SQLITE_OPEN_READONLY : SQLITE_OPEN_READWRITE) | SQLITE_OPEN_NOMUTEX, nil)
         guard opened == SQLITE_OK, let db else {
             let error = failure("open", opened)
             if let db { sqlite3_close(db) }
@@ -117,6 +141,10 @@ enum NativeFiles {
         }
         defer { sqlite3_close(db) }
         sqlite3_busy_timeout(db, 1000)
+        if !readOnly {
+            let status = sqlite3_exec(db, "PRAGMA query_only=ON", nil, nil, nil)
+            guard status == SQLITE_OK else { throw failure("queryOnly", status) }
+        }
         var statement: OpaquePointer?
         let prepared = sqlite3_prepare_v2(db, sql, -1, &statement, nil)
         guard prepared == SQLITE_OK, let statement else {
@@ -147,7 +175,8 @@ enum NativeFiles {
     static func schema(_ home: URL, threadID: String, source: Bool) throws {
         let stage = source ? "sourceSchema" : "targetSchema"
         func readRows(_ url: URL, _ sql: String, bindings: [String] = []) throws -> [[String]] {
-            try rows(url, sql, bindings: bindings, diagnosticStage: stage)
+            if source { return try rows(url, sql, bindings: bindings, diagnosticStage: stage) }
+            return try stoppedDatabaseRows(url, sql, bindings: bindings, diagnosticStage: stage)
         }
         let db = home.appendingPathComponent("state_5.sqlite")
         let names = try fm.contentsOfDirectory(atPath: home.path)
