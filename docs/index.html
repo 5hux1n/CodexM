@@ -1,1 +1,82 @@
-<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>CodexM · 项目继续，账户随你切换</title><meta name="description" content="在 macOS 菜单栏管理多个 Codex 账户、预览窗口与接力项目。"><meta property="og:title" content="CodexM · 项目继续，账户随你切换"><meta property="og:description" content="在 macOS 菜单栏管理多个 Codex 账户、预览窗口与接力项目。"><meta property="og:type" content="website"><link rel="canonical" href="https://codexm.goforit.si/"><link rel="stylesheet" href="site-assets/style.css"><script src="site-assets/home.js" defer></script></head><body><a class="skip" href="#main">跳到主要内容</a><div class="wrap"><header><a class="brand" href="/"><img src="site-assets/icon.png" alt="">CodexM</a><nav><a href="#relay">项目接力</a><a href="#install">安装</a><a href="https://github.com/5hux1n/CodexM">源码 ↗</a></nav></header><main id="main"><section class="hero split"><div><span class="label">A LITTLE UTILITY FOR YOUR MAC</span><h1>账户可以切换。<br>项目继续向前。</h1><p class="lead">把多个 Codex 账户放进菜单栏。<br>独立登录、切换窗口，让手上的任务接着做。</p><div class="actions"><a class="btn primary" href="https://github.com/5hux1n/CodexM/releases/latest">下载 Mac 版 ↓</a><a href="#relay">了解项目接力</a></div><p class="small muted">v1.0.3 · macOS 14+ · Apple Silicon & Intel</p></div><div class="desktop-demo" aria-label="账户管理交互示意"><div class="menubar"><span>◉　Finder</span><span>⌘　<span class="selected">C</span></span></div><div class="menu"><div class="menu-title">我的账户 <span>＋</span></div><button class="account active" data-account="工作账户" aria-pressed="true"><span class="avatar">W</span><span>工作账户<small>2 个窗口</small></span><i>●</i></button><button class="account" data-account="个人账户" aria-pressed="false"><span class="avatar purple">P</span><span>个人账户<small>1 个窗口</small></span><i>●</i></button><div class="window"><span class="small">当前账户</span><b id="account-label">工作账户</b><span>从菜单栏，找到正在做的事。</span></div><div class="menu-bottom">项目接力　　通用设置</div></div><p class="small muted illustration">功能交互示意，非应用截图。点击账户试试。</p></div></section><section class="essentials"><div class="grid"><article><span class="glyph">◫</span><h3>各自登录，各自保存。</h3><p>为新增账户保留独立应用数据目录，已有账户继续沿用本机数据。</p></article><article><span class="glyph">⌘</span><h3>窗口都在手边。</h3><p>查看账户窗口、悬停预览、点击切换。少找一次窗口，多留一点专注。</p></article><article><span class="glyph">↗</span><h3>带着上下文继续。</h3><p>预览接力内容，或导入所选任务历史。你决定继续的方式。</p></article></div></section><section id="relay"><div class="label">PROJECT HANDOFF</div><h2>接着做，有两条路。</h2><div class="relay"><article><span class="pill">上下文接力</span><h3>带着整理好的说明，<br>开启下一段工作。</h3><p>读取所选任务 → 预览接力内容 → 在目标客户端粘贴并发送。</p><p class="small muted">适合用整理后的背景继续任务。发送前检查内容。</p></article><article><span class="pill">原生任务迁移</span><h3>把已有历史，<br>带到目标账户。</h3><p>暂停来源任务 → 检查目标客户端 → 备份、导入、验证。</p><p class="small muted">依赖官方客户端兼容性；备份和回滚遵循数据检查。</p></article></div></section><section id="install" class="install"><h2>一个菜单栏工具。<br>从一次安装开始。</h2><ol><li>先安装兼容的官方客户端。</li><li>下载 DMG，将 CodexM 拖入 Applications。</li><li>添加账户，在官方客户端完成登录。</li></ol><a class="btn primary" href="https://github.com/5hux1n/CodexM/releases/latest">下载最新版本 ↓</a><p class="note">CodexM 是独立开源工具，与 OpenAI 无隶属或背书关系，不包含官方客户端。当前发布包未经 Apple 公证，窗口预览和聚焦需要辅助功能权限。</p></section></main><footer><span>CodexM · MIT License</span><a href="https://github.com/5hux1n/CodexM/issues">问题反馈 ↗</a></footer></div></body></html>
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f8f9fc">
+  <title>CodexM · 多账户，各自登录，接着工作</title>
+  <meta name="description" content="macOS 菜单栏里的 Codex 多账户管理工具。独立登录、窗口预览与切换、上下文接力和原生任务迁移。下载 Mac 版，查看安装与使用说明。">
+  <meta property="og:title" content="CodexM · 把账户切换，留在菜单栏">
+  <meta property="og:description" content="多个账户，多扇窗口。从菜单栏找到正在做的事，让项目继续。macOS 14+，支持 Apple Silicon 与 Intel。">
+  <meta property="og:type" content="website">
+  <link rel="canonical" href="https://codexm.goforit.si/">
+  <link rel="icon" type="image/png" href="site-assets/icon.png">
+  <link rel="stylesheet" href="site-assets/style.css?v=20261004-2">
+  <script src="site-assets/home.js?v=20261004-2" defer></script>
+</head>
+<body>
+<a class="skip" href="#main">跳到主要内容</a>
+<header class="site-header container">
+  <a href="#" class="brand"><img src="site-assets/icon.png" width="36" height="36" alt=""><span>CodexM</span></a>
+  <nav aria-label="主导航"><a href="#workspace">账户与窗口</a><a href="#handoff">项目接力</a><a href="#start">使用说明</a></nav>
+  <a class="header-download" href="#download">下载 Mac 版 <span aria-hidden="true">↓</span></a>
+</header>
+<main id="main">
+  <section class="hero container" aria-labelledby="hero-title">
+    <div class="hero-intro"><div class="app-mark"><img src="site-assets/icon.png" width="76" height="76" alt="CodexM 应用图标"><div><b>CodexM</b><span>macOS 菜单栏工具</span></div></div><h1 id="hero-title">把账户切换，<br>留在菜单栏。</h1><p class="hero-lead">工作账户、个人账户，各自登录。<br>从一处找到窗口，把注意力留给正在做的项目。</p><div class="actions"><a class="button primary" href="https://github.com/5hux1n/CodexM/releases/download/v1.0.3/CodexM-v1.0.3-macOS.dmg">下载 DMG <span aria-hidden="true">↓</span></a><a class="text-link" href="#handoff">看看项目如何接力</a></div><p class="hero-requirements">v1.0.3 · macOS 14+<br>Apple Silicon 与 Intel · 需要兼容的官方客户端</p></div>
+    <div class="workspace-demo" id="workspace" aria-labelledby="demo-title">
+      <div class="demo-caption"><h2 id="demo-title">你的工作现场</h2><span>功能交互示意</span></div>
+      <div class="demo-menubar"><span>Finder <span class="menu-secondary">文件　编辑　显示</span></span><span class="menubar-right"><span aria-hidden="true">⌁</span><img src="site-assets/icon.png" width="20" height="20" alt=""></span></div>
+      <div class="workspace-interior">
+        <div class="account-menu"><div class="menu-heading"><b>我的账户</b><small>点击账户切换示意</small></div>
+          <button class="account active" type="button" data-account="work" aria-pressed="true"><span class="avatar work-avatar">W</span><span><b>工作账户</b><small>2 个窗口</small></span><span class="online" aria-label="运行中"></span></button>
+          <button class="account" type="button" data-account="personal" aria-pressed="false"><span class="avatar personal-avatar">P</span><span><b>个人账户</b><small>1 个窗口</small></span><span class="online" aria-label="运行中"></span></button>
+          <button class="account" type="button" data-account="side" aria-pressed="false"><span class="avatar side-avatar">S</span><span><b>实验账户</b><small>1 个窗口</small></span><span class="online" aria-label="运行中"></span></button>
+          <div class="menu-footer"><a href="#handoff">项目接力</a><a href="#start">通用设置</a></div>
+        </div>
+        <div class="window-preview" aria-live="polite"><div class="window-chrome"><span class="traffic-lights" aria-hidden="true"><i></i><i></i><i></i></span><span id="window-account">工作账户</span></div><div class="window-body"><span class="preview-tag">窗口预览</span><h3 id="window-title">继续网站项目</h3><p id="window-description">查看正在处理的窗口，点击即可切换到对应任务。</p><div class="task-lines" aria-hidden="true"><span></span><span></span><span></span></div><div class="task-progress"><span class="running-dot" aria-hidden="true"></span><span id="window-detail">网站项目 · 2 个窗口可供选择</span></div></div></div>
+      </div>
+      <p class="demo-note">这里演示账户与窗口的关系，不是应用截图，也不会连接你的账户。</p>
+    </div>
+  </section>
+
+  <section class="capabilities container" aria-labelledby="capabilities-title">
+    <div class="section-heading"><h2 id="capabilities-title">多个账户，<br>一处照看。</h2><p>减少寻找窗口和重复登录的来回。<br>从启动账户，到继续任务，都有明确入口。</p></div>
+    <div class="capability-grid">
+      <article><svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="11" cy="11" r="4"/><path d="M3 27v-4a8 8 0 0 1 16 0v4M22 8a4 4 0 0 1 0 8m2 4a7 7 0 0 1 5 7"/></svg><h3>各自登录，各自保存</h3><p>新增账户保留独立的应用数据目录。默认账户沿用本机已有数据；登录仍在官方客户端里完成。</p></article>
+      <article><svg viewBox="0 0 32 32" aria-hidden="true"><rect x="3" y="5" width="20" height="17" rx="2"/><path d="M8 5v17m2 5h17a2 2 0 0 0 2-2V12"/></svg><h3>找到窗口，直接切换</h3><p>查看账户的窗口数量，悬停窗口项预览，用呼吸边框识别目标窗口。点击切换，少找一次窗口。</p></article>
+      <article><svg viewBox="0 0 32 32" aria-hidden="true"><path d="M4 11h22m-6-6 6 6-6 6M28 23H6m6-6-6 6 6 6"/></svg><h3>让项目换个账户继续</h3><p>整理上下文，在新任务继续；或经过检查，将所选任务历史导入目标账户。两种方式，按需求选择。</p></article>
+    </div>
+    <div class="utility-line"><span>账户启动、停止与重启</span><span>简体中文 / English</span><span>系统外观</span><span>登录 Mac 时启动</span><span>可复制的故障诊断</span></div>
+  </section>
+
+  <section class="handoff-section" id="handoff" aria-labelledby="handoff-title">
+    <div class="container"><div class="handoff-heading"><span class="section-label">项目接力</span><h2 id="handoff-title">任务换个账户，<br>不用从头解释。</h2><p>先选来源任务和目标账户，再选择如何继续。<br>点击下方切换，了解两种方式的区别。</p></div>
+      <div class="handoff-tabs" role="tablist" aria-label="项目接力方式"><button id="context-tab" class="active" role="tab" aria-selected="true" aria-controls="context-panel" tabindex="0" type="button">上下文接力</button><button id="native-tab" role="tab" aria-selected="false" aria-controls="native-panel" tabindex="-1" type="button">原生任务迁移</button></div>
+      <div class="handoff-panel" id="context-panel" role="tabpanel" aria-labelledby="context-tab" tabindex="0"><div class="handoff-explainer"><h3>带着整理好的说明，<br>开始下一段工作。</h3><p>读取所选任务，预览接力内容，生成接力包；到目标客户端手动粘贴并发送继续指令。</p><ul><li>适合用整理后的背景、原始请求和近期摘录继续任务。</li><li>不会迁移原任务的完整历史或账户凭据。</li><li>内容经过基础脱敏，发送前仍需自己检查。</li></ul></div><div class="handoff-flow"><span class="flow-label">操作流程</span><ol><li><span>来源任务</span><b>读取与预览</b><small>检查生成的接力内容</small></li><li><span>接力包</span><b>保留任务背景</b><small>带上下一步继续说明</small></li><li><span>目标账户</span><b>粘贴并发送</b><small>在目标客户端手动继续</small></li></ol></div></div>
+      <div class="handoff-panel" id="native-panel" role="tabpanel" aria-labelledby="native-tab" tabindex="0" hidden><div class="handoff-explainer"><h3>把所选任务的历史，<br>带到目标账户。</h3><p>暂停来源任务、停止目标客户端，通过占用与兼容性检查后导入。保留原会话历史和时间，以及本地项目归属。</p><ul><li>只迁移选中的会话，不迁移同项目的其他任务或登录凭据。</li><li>包含备份、导入验证和回滚；回滚不能覆盖后续工作。</li><li>依赖官方客户端的本地加载器，更新后需确认兼容性。</li></ul></div><div class="handoff-flow"><span class="flow-label">操作流程</span><ol><li><span>准备</span><b>暂停与停止</b><small>暂停来源任务，停止目标客户端</small></li><li><span>导入</span><b>检查并备份</b><small>通过占用与兼容性检查后写入</small></li><li><span>验证</span><b>核对迁移结果</b><small>目标客户端中的继续执行仍需验证</small></li></ol></div></div>
+      <p class="handoff-note">原生迁移会写入目标任务存储。遇到不支持的任务或客户端版本，可改用上下文接力；检查失败时保留诊断信息。</p>
+    </div>
+  </section>
+
+  <section class="start-section container" id="start" aria-labelledby="start-title">
+    <div class="section-heading"><div><span class="section-label">开始使用</span><h2 id="start-title">装好之后，<br>从菜单栏开始。</h2></div><p>需要兼容的官方客户端。CodexM 识别应用标识 <code>com.openai.codex</code>，部分版本在系统中显示为 ChatGPT。</p></div>
+    <ol class="start-steps"><li><h3>安装并选择客户端</h3><p>先安装兼容的官方客户端。将 CodexM 拖入 Applications，启动后在“通用设置”中确认或选择客户端。</p></li><li><h3>添加账户，完成登录</h3><p>在“我的账户”添加配置，点击启动，在官方客户端内登录。已有本机账户可通过默认账户继续使用。</p></li><li><h3>切换窗口与任务</h3><p>打开菜单栏。悬停右侧箭头展开操作菜单，移走关闭；点击箭头固定展开。选择窗口即可切换。</p></li><li><h3>需要接力时再选择</h3><p>打开“项目接力”，选择来源任务、目标账户与方式。按照界面提示准备、预览或执行导入。</p></li></ol>
+    <div class="permission-box"><div><h3>窗口操作需要辅助功能权限</h3><p>精确聚焦、新建窗口和悬停预览需按应用提示授权。路径为：系统设置 → 隐私与安全性 → 辅助功能。</p></div><p>当前发布包采用 ad-hoc 签名，未经 Developer ID 签名或 Apple 公证。替换或更新应用后，可能需要移除旧授权，再添加当前应用。</p></div>
+  </section>
+
+  <section class="local-section container" aria-labelledby="local-title"><div class="local-intro"><span class="section-label">数据留在本机</span><h2 id="local-title">账户分开。<br>边界讲清。</h2><p>账户隔离是应用数据目录隔离。CodexM 不提供账户服务器、遥测或凭据同步。</p></div><div class="local-details"><article><h3>登录交给官方客户端</h3><p>CodexM 检测认证状态时只读取认证文件元数据，不解析认证文件内容。官方客户端自身的网络行为由其控制。</p></article><article><h3>新增账户有独立目录</h3><p>默认位于 <code>~/Library/Application Support/CodexM/</code>，可以在设置中调整。默认账户继续使用官方客户端原有位置。</p></article><article><h3>故障信息可以带走</h3><p>在通用设置或错误弹窗复制诊断信息。最近 100 条记录不包含账户名称、路径、凭据或对话内容，便于按阶段和错误码排查。</p></article></div></section>
+
+  <section class="download-section" id="download" aria-labelledby="download-title"><div class="container download-inner"><img class="download-icon" src="site-assets/icon.png" width="96" height="96" alt=""><h2 id="download-title">一个菜单栏工具，<br>多个工作现场。</h2><p>CodexM v1.0.3 · macOS 14+<br>Universal，支持 Apple Silicon 与 Intel。</p><div class="actions"><a class="button primary" href="https://github.com/5hux1n/CodexM/releases/download/v1.0.3/CodexM-v1.0.3-macOS.dmg">下载 DMG <span aria-hidden="true">↓</span></a><a class="button secondary" href="https://github.com/5hux1n/CodexM/releases/download/v1.0.3/CodexM-v1.0.3-macOS.zip">下载 ZIP <span aria-hidden="true">↓</span></a></div><div class="release-links"><a href="https://github.com/5hux1n/CodexM/releases/tag/v1.0.3">版本说明</a><a href="https://github.com/5hux1n/CodexM/releases/download/v1.0.3/SHA256SUMS.txt">SHA-256 校验文件</a><a href="https://github.com/5hux1n/CodexM/releases/latest">查看最新发布</a></div><p class="download-note">独立开发的开源工具，与 OpenAI 无隶属或背书关系，不包含官方客户端。<br>多窗口、跨桌面聚焦与原生迁移，需在你的客户端版本下验证。</p></div></section>
+
+  <section class="faq-section container" aria-labelledby="faq-title"><div><h2 id="faq-title">使用前，<br>你可能还想知道。</h2><a class="text-link" href="https://github.com/5hux1n/CodexM/issues">反馈问题</a></div><div class="faq-list">
+    <details><summary>退出 CodexM，会关闭正在运行的客户端吗？</summary><p>默认不会。已运行的客户端继续运行，可以在通用设置中更改这一行为。</p></details>
+    <details><summary>可以删除账户吗？原有账户会受影响吗？</summary><p>新增账户可以删除，数据会移入废纸篓。正在运行或被占用的账户不能删除；默认账户不能删除。账户配置可以重命名。</p></details>
+    <details><summary>原生迁移不成功，应该怎么处理？</summary><p>先核对官方客户端版本及占用状态，按提示暂停来源任务、停止目标客户端。迁移依赖本地加载器，部分任务结构不支持；可改用上下文接力。目标数据发生变化后，回滚也可能被拒绝，以免覆盖后续工作。</p></details>
+    <details><summary>如何从源码构建？</summary><p>需要 Xcode 26+ 与 Python 3。按项目开发文档设置 Xcode 路径，并运行 <code>./scripts/build_release.sh</code>，生成 App、DMG 与 ZIP。</p><a class="text-link" href="https://github.com/5hux1n/CodexM/blob/main/docs/DEVELOPMENT.md">阅读开发文档</a></details>
+    <details><summary>反馈问题时需要提供什么？</summary><p>提供 macOS、CodexM、官方客户端版本及复现步骤，按需附上应用生成的诊断信息。不要上传认证文件或完整私人会话。</p></details>
+  </div></section>
+</main>
+<footer class="site-footer container"><a class="brand" href="#"><img src="site-assets/icon.png" width="28" height="28" alt=""><span>CodexM</span></a><span>MIT 开源许可</span><nav aria-label="页脚导航"><a href="https://github.com/5hux1n/CodexM">GitHub</a><a href="https://github.com/5hux1n/CodexM#readme">完整说明</a><a href="https://mjh.im/">作者主页</a></nav></footer>
+</body>
+</html>
