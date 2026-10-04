@@ -64,8 +64,8 @@ final class NativeChild {
         String(decoding: try readLine(deadline: Date().addingTimeInterval(10)), as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
     }
     func call(_ method: String, _ params: [String: Any]) throws -> [String: Any] {
-        guard ["initialize", "thread/resume", "thread/read", "thread/turns/list"].contains(method) else { throw NativeMigrationError.helper }
-        stage = ["initialize": "initialize", "thread/resume": "resume", "thread/read": "read", "thread/turns/list": "page"][method] ?? "load"
+        guard ["initialize", "thread/resume", "thread/read", "thread/turns/list", "project/list", "project/create", "thread/metadata/update"].contains(method) else { throw NativeMigrationError.helper }
+        stage = ["initialize": "initialize", "thread/resume": "resume", "thread/read": "read", "thread/turns/list": "page", "project/list": "project", "project/create": "project", "thread/metadata/update": "project"][method] ?? "load"
         sequence += 1; let id = sequence
         try send(["id": id, "method": method, "params": params])
         let deadline = Date().addingTimeInterval(45)
@@ -78,7 +78,7 @@ final class NativeChild {
             }
             if response["id"] as? Int == id {
                 if let error = response["error"] as? [String: Any] {
-                    let stage = ["initialize": "initialize", "thread/resume": "resume", "thread/read": "read", "thread/turns/list": "page"][method] ?? "load"
+                    let stage = ["initialize": "initialize", "thread/resume": "resume", "thread/read": "read", "thread/turns/list": "page", "project/list": "project", "project/create": "project", "thread/metadata/update": "project"][method] ?? "load"
                     throw NativeMigrationDiagnostic(stage: stage, code: "RPC \((error["code"] as? Int) ?? -1)")
                 }
                 guard let result = response["result"] as? [String: Any] else { throw NativeMigrationDiagnostic(stage: stage, code: "rpc-missingResult") }
@@ -94,6 +94,70 @@ final class NativeChild {
 }
 
 enum NativeHistoryLoader {
+    static func sourceProject(home: URL, threadID: String, cwd: String) throws -> NativeProject? {
+        let db = home.appendingPathComponent("state_5.sqlite")
+        let columns = try NativeFiles.rows(db, "PRAGMA table_info(threads)").map { $0[1] }
+        if columns.contains("project_id"), let id = try NativeFiles.rows(db, "SELECT project_id FROM threads WHERE id=?", bindings: [threadID]).first?.first, !id.isEmpty {
+            let names = try NativeFiles.rows(db, "SELECT name FROM projects WHERE id=?", bindings: [id])
+            let roots = try NativeFiles.rows(db, "SELECT path FROM project_roots WHERE project_id=? ORDER BY position", bindings: [id]).map { $0[0] }
+            guard let name = names.first?.first, !roots.isEmpty else { throw NativeMigrationDiagnostic(stage: "project", code: "missingSourceProject") }
+            return NativeProject(name: name, roots: roots)
+        }
+        // Older desktop versions keep assignments in global state until their
+        // app-server migration completes. Read only the selected local project.
+        let state = home.appendingPathComponent(".codex-global-state.json")
+        guard NativeFiles.fm.fileExists(atPath: state.path) else { return nil }
+        try NativeFiles.safe(state)
+        guard (try state.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0) < 16 * 1024 * 1024,
+              let value = try JSONSerialization.jsonObject(with: Data(contentsOf: state)) as? [String: Any] else { throw NativeMigrationDiagnostic(stage: "project", code: "invalidSourceProjectState") }
+        if (value["projectless-thread-ids"] as? [String])?.contains(threadID) == true { return nil }
+        let projects = value["local-projects"] as? [String: [String: Any]] ?? [:]
+        let assignment = (value["thread-project-assignments"] as? [String: [String: Any]])?[threadID]
+        let selected: [String: Any]?
+        if let assignment {
+            guard assignment["projectKind"] as? String == "local", let id = assignment["projectId"] as? String,
+                  let project = projects[id] else { throw NativeMigrationDiagnostic(stage: "project", code: "unsupportedSourceProject") }
+            selected = project
+        } else {
+            selected = projects.values.first { ($0["rootPaths"] as? [String])?.contains(cwd) == true }
+        }
+        guard let selected else { return nil }
+        guard let name = selected["name"] as? String, let roots = selected["rootPaths"] as? [String], !roots.isEmpty,
+              roots.allSatisfy({ $0.hasPrefix("/") && !$0.hasPrefix(home.path + "/") }) else { throw NativeMigrationDiagnostic(stage: "project", code: "unsupportedSourceProject") }
+        return NativeProject(name: name, roots: roots)
+    }
+
+    static func assignProject(binary: URL, home: URL, threadID: String, project: NativeProject, migrationID: UUID) throws -> (id: String, name: String) {
+        let child = try NativeChild(binary: binary, arguments: ["app-server", "--stdio", "-c", "analytics.enabled=false", "-c", "mcp_servers={}", "-c", "cli_auth_credentials_store=\"file\""], home: home, cwd: home)
+        defer { child.close() }
+        try child.initialize()
+        var cursor: String?, seen: Set<String> = [], found: String?, foundName: String?
+        for _ in 0..<1000 {
+            var params: [String: Any] = ["limit": 100]
+            if let cursor { params["cursor"] = cursor }
+            let result = try child.call("project/list", params)
+            guard let projects = result["data"] as? [[String: Any]] else { throw NativeMigrationDiagnostic(stage: "project", code: "invalidProjectList") }
+            let matching = projects.filter { item in
+                guard let roots = item["roots"] as? [[String: Any]] else { return false }
+                return Set(roots.compactMap { $0["path"] as? String }) == Set(project.roots)
+            }
+            if let id = matching.first?["id"] as? String { found = id; foundName = matching.first?["name"] as? String; break }
+            cursor = result["nextCursor"] as? String
+            if cursor == nil { break }
+            guard seen.insert(cursor!).inserted else { throw NativeMigrationDiagnostic(stage: "project", code: "repeatedProjectCursor") }
+        }
+        if found == nil {
+            guard cursor == nil else { throw NativeMigrationDiagnostic(stage: "project", code: "projectPageLimit") }
+            let result = try child.call("project/create", ["name": project.name, "roots": project.roots.map { ["path": $0] }, "idempotencyKey": "codexm-" + migrationID.uuidString])
+            found = (result["project"] as? [String: Any])?["id"] as? String
+            foundName = (result["project"] as? [String: Any])?["name"] as? String
+        }
+        guard let id = found else { throw NativeMigrationDiagnostic(stage: "project", code: "missingTargetProject") }
+        _ = try child.call("thread/metadata/update", ["threadId": threadID, "projectId": id])
+        let result = try child.call("thread/read", ["threadId": threadID, "includeTurns": false])
+        guard (result["thread"] as? [String: Any])?["projectId"] as? String == id else { throw NativeMigrationDiagnostic(stage: "project", code: "projectAssignmentMismatch") }
+        return (id, foundName ?? project.name)
+    }
     static let fixtureCLI = "codex-cli 0.154.0-alpha.6.2"
     /// Discover the selected client's embedded CLI by bundle identity and executable
     /// metadata, so relocating or renaming the helper does not break migration.

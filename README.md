@@ -10,7 +10,7 @@
 
 为不同账户保留独立登录状态，从菜单栏切换窗口，并通过项目接力继续已有任务。
 
-**当前版本：1.0.2 · macOS 14+ · Apple Silicon / Intel**
+**当前版本：1.0.3 · macOS 14+ · Apple Silicon / Intel**
 
 CodexM 是独立开发的开源工具，与 OpenAI 无隶属或背书关系，不包含官方客户端。
 
@@ -30,7 +30,7 @@ export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
 open dist/CodexM.app
 ```
 
-如果 Xcode 安装在其他位置，请修改 `DEVELOPER_DIR`。构建会生成 `dist/CodexM.app`、`dist/CodexM-v1.0.2-macOS.dmg` 和 ZIP 压缩包。将应用放到固定位置后使用。
+如果 Xcode 安装在其他位置，请修改 `DEVELOPER_DIR`。构建会生成 `dist/CodexM.app`、`dist/CodexM-v1.0.3-macOS.dmg` 和 ZIP 压缩包。将应用放到固定位置后使用。
 
 当前发布包及本地构建采用 ad-hoc 签名，未经 Developer ID 签名或 Apple 公证。替换应用后，macOS 可能要求重新授予辅助功能权限。
 
@@ -60,6 +60,8 @@ open dist/CodexM.app
 | --- | --- | --- |
 | 上下文接力 | 用整理后的上下文继续任务 | 读取所选任务，预览接力内容，生成接力包，在目标客户端手动粘贴并发送继续指令 |
 | 原生任务迁移 | 将已有任务历史导入目标账户 | 暂停来源任务，停止目标客户端，通过占用与兼容性检查后执行导入 |
+
+原生迁移会恢复所选会话的本地项目归属：目录相同的目标项目会复用，没有时按原项目名称和目录创建。保留原会话历史与时间，不会迁移同项目下未选择的其他会话。
 
 原生迁移包含备份、导入验证和回滚，会写入目标任务存储，并依赖官方客户端的本地加载器。官方版本更新可能改变兼容性；检查失败时请保留诊断信息。目标数据发生变化后，回滚也可能被拒绝，以免覆盖后续工作。
 

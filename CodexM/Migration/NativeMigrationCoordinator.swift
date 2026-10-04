@@ -84,6 +84,7 @@ actor NativeMigrationCoordinator {
             stage = "directory"
             try NativeFiles.directory(targetHome)
             try preflight("sourceSchema") { try NativeFiles.schema(sourceHome, threadID: thread.threadID, source: true) }
+            let sourceProject = try preflight("project") { try NativeHistoryLoader.sourceProject(home: sourceHome, threadID: thread.threadID, cwd: thread.cwd) }
             try preflight("targetSchema") { try NativeFiles.schema(targetHome, threadID: thread.threadID, source: false) }
             stage = "initialize"
             let cli = try version(binary, targetHome)
@@ -155,6 +156,15 @@ actor NativeMigrationCoordinator {
                 // have a separate lifecycle and must not cause a false import failure.
                 for url in try NativeFiles.fm.contentsOfDirectory(at: targetHome, includingPropertiesForKeys: nil) where NativeFiles.taskDatabase(url.lastPathComponent) {
                     guard try NativeFiles.stoppedDatabaseRows(url, "PRAGMA integrity_check", diagnosticStage: "importDatabase") == [["ok"]] else { throw NativeMigrationError.helper }
+                }
+                if let sourceProject {
+                    stage = "project"
+                    let assigned = try NativeHistoryLoader.assignProject(binary: binary, home: targetHome, threadID: thread.threadID, project: sourceProject, migrationID: record.id)
+                    record.importedProjectID = assigned.id
+                    record.importedProjectName = assigned.name
+                    try NativeFiles.stopped(targetHome, electron: target.electronHome(in: root))
+                    guard try NativeFiles.stoppedDatabaseRows(db, "SELECT project_id FROM threads WHERE id=?", bindings: [thread.threadID], diagnosticStage: "project") == [[record.importedProjectID!]],
+                          try NativeFiles.stoppedDatabaseRows(db, "PRAGMA integrity_check", diagnosticStage: "project") == [["ok"]] else { throw NativeMigrationDiagnostic(stage: "project", code: "projectVerificationFailed") }
                 }
                 record.evidence = second; record.status = "verified"
             } catch {

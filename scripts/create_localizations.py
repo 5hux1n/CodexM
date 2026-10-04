@@ -146,10 +146,10 @@ rows.update({'native.mode': ('Handoff method', '接力方式'),
  'native.threadID': ('Original task ID: %@', '原任务 ID：%@'),
  'native.evidence': ('%d turns and %d history items verified across helper restart.',
                      '已验证 %d 轮、%d 个历史条目，重启本地服务后内容一致。'),
- 'native.next': ('After import, the target account opens automatically. Find this task in its task list; no '
+ 'native.next': ('After import, the target account opens automatically. Find this task in its original project when available, or in the task list; no '
                  'context pasting is needed. Check the history, then manually send a small continuation '
                  'request. Import verification does not establish cross-account execution compatibility.',
-                 '导入成功后自动打开目标账户，在任务列表中找到这个原任务即可，无需复制或粘贴上下文。先检查历史，再手动发送一条简短的继续指令。导入验证不代表已证明跨账户执行兼容。'),
+                 '导入成功后自动打开目标账户，原任务有本地项目分组时会归入对应项目，可在项目下找到；否则仍显示在任务列表，无需复制或粘贴上下文。先检查历史，再手动发送一条简短的继续指令。导入验证不代表已证明跨账户执行兼容。'),
  'native.recoveryHint': ('No successful native continuation is claimed. The backup and migration record are '
                          'kept locally. Use rollback if available; interrupted operations require recovery '
                          'before retrying.',
@@ -359,6 +359,7 @@ rows.update({
     'native.error.busy': ('The target account client has not fully exited, or a process still holds its task files. Pausing a task or closing one window does not stop the account client. Stop the target account in CodexM and retry after it exits. The diagnostic may include the blocking PID.', '目标账户客户端尚未完全退出，或仍有进程占用任务文件。暂停任务或关闭单个窗口不等于停止账户客户端。请在 CodexM 中停止目标账户，待退出后重试；诊断信息会在可用时提供占用进程的 PID。'),
 })
 rows.update({'handoff.updatedAt': ('Updated %@', '更新于 %@')})
+rows.update({'native.stage.project': ('Restoring project membership', '恢复项目归属'), 'native.importedProject': ('Imported into project: %@', '已归入项目：%@')})
 output = {"sourceLanguage": "en", "strings": {key: {"extractionState": "manual", "localizations": {lang: {"stringUnit": {"state": "translated", "value": value}} for lang, value in zip(['en','zh-Hans'], pair)}} for key, pair in sorted(rows.items())}, "version": "1.0"}
 path = Path(__file__).resolve().parents[1] / 'CodexM/Resources/Localizable.xcstrings'
 path.write_text(json.dumps(output, ensure_ascii=False, indent=2) + '\n')

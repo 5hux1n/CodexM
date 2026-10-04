@@ -23,6 +23,10 @@ struct NativeEvidence: Codable, Sendable, Equatable {
     let items: Int
     let historyHash: String
 }
+struct NativeProject: Sendable {
+    let name: String
+    let roots: [String]
+}
 struct NativeMigrationRecord: Codable, Identifiable, Sendable {
     var formatVersion = 1
     let id: UUID
@@ -40,6 +44,8 @@ struct NativeMigrationRecord: Codable, Identifiable, Sendable {
     var before: [String: String] = [:]
     var after: [String: String] = [:]
     var evidence: NativeEvidence?
+    var importedProjectID: String?
+    var importedProjectName: String?
     var diagnostic: NativeMigrationDiagnostic?
     var loadedRolloutHash: String?
     var failure: AppFailure?

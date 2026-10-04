@@ -279,6 +279,7 @@ struct HandoffView: View {
             Label(model.text("native.status.\(record.status)"), systemImage: record.status == "verified" ? "checkmark.circle" : "info.circle").font(.headline)
             Text(record.title).font(.headline)
             Text(record.project).font(.caption).textSelection(.enabled)
+            if let name = record.importedProjectName { Text(model.text("native.importedProject", name)).font(.caption) }
             Text(model.text("native.threadID", record.threadID)).font(.caption).textSelection(.enabled)
             if let failure = record.failure { Text(failure.errorDescription ?? "").foregroundStyle(.red).font(.callout).textSelection(.enabled) }
             else if let detail = record.diagnostic { Text(detail.errorDescription ?? "").foregroundStyle(.red).font(.callout) }
