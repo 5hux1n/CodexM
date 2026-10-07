@@ -58,8 +58,8 @@ extension AppModel {
 
     func relocateAccounts(to url: URL) async {
         guard ready, !metadataMutation, !isQuitting, busyProfiles.isEmpty else { report(CodexMError.profileBusy, operation: "account.relocate"); return }
-        metadataMutation = true; relocatingAccounts = true
-        defer { metadataMutation = false; relocatingAccounts = false }
+        metadataMutation = true; relocatingAccounts = true; relocationProgress = nil
+        defer { metadataMutation = false; relocatingAccounts = false; relocationProgress = nil }
         do {
             await refreshProcesses()
             guard !profiles.contains(where: { !$0.isInstalledDefault && (instances[$0.id] != nil || blockedProfiles.contains($0.id)) }) else { throw CodexMError.profileBusy }
@@ -67,7 +67,12 @@ extension AppModel {
             persisting = true
             defer { persisting = false }
             let state = StoredState(profiles: profiles, preferences: preferences, runtimeRecords: records)
-            let updated = try await store.relocateAccounts(to: url, saving: state)
+            let updated = try await store.relocateAccounts(to: url, saving: state) { [weak self] value in
+                Task { @MainActor in
+                    guard let self, self.relocatingAccounts else { return }
+                    self.relocationProgress = value
+                }
+            }
             profiles = updated.profiles; preferences = updated.preferences
         } catch { report(error, operation: "account.relocate") }
         if needsSave { await persist() }

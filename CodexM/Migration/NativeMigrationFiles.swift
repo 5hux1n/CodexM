@@ -206,9 +206,7 @@ enum NativeFiles {
         let lock = electron.appendingPathComponent("SingletonLock")
         if let target = try? fm.destinationOfSymbolicLink(atPath: lock.path) {
             do {
-                try SingletonLockPolicy.validate(target: target, localHostname: ProcessInfo.processInfo.hostName) { pid in
-                    kill(pid, 0) == 0 || errno == EPERM
-                }
+                try SingletonLockPolicy.validate(target: target, directory: electron)
             } catch {
                 let pid = target.split(separator: "-").last.flatMap { Int32($0) }
                 throw NativeMigrationDiagnostic(stage: "occupancy", code: pid.map { "clientLock-pid-\($0)" } ?? "clientLock-unrecognized")

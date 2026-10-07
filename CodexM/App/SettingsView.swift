@@ -56,6 +56,23 @@ struct SettingsView: View {
             Section(model.text("settings.accountDirectory")) {
                 Text(model.accountDataDirectory.path).font(.caption).textSelection(.enabled)
                 Button(model.text("settings.chooseDirectory")) { Task { await model.chooseAccountDataDirectory() } }
+                if model.relocatingAccounts {
+                    VStack(alignment: .leading, spacing: 8) {
+                        if let fraction = model.relocationProgress {
+                            HStack {
+                                Text(model.text("settings.directoryCopying"))
+                                Spacer()
+                                Text(fraction, format: .percent.precision(.fractionLength(0))).monospacedDigit()
+                            }
+                            ProgressView(value: fraction)
+                        } else {
+                            HStack(spacing: 8) {
+                                ProgressView().controlSize(.small)
+                                Text(model.text("settings.directoryPreparing"))
+                            }
+                        }
+                    }.font(.callout).padding(.vertical, 4)
+                }
                 Text(model.text("settings.directoryHint")).font(.caption).foregroundStyle(.secondary)
             }.disabled(!model.ready)
         }.formStyle(.grouped)

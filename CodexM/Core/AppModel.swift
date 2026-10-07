@@ -36,6 +36,7 @@ final class AppModel {
     var loginItemNeedsApproval = SMAppService.mainApp.status == .requiresApproval
     var isQuitting = false
     var relocatingAccounts = false
+    var relocationProgress: Double?
 
     @ObservationIgnored let nativeMigration = NativeMigrationCoordinator()
     @ObservationIgnored let handoffCoordinator = HandoffCoordinator()

@@ -4625,6 +4625,23 @@
         }
       }
     },
+    "settings.directoryCopying": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copying account data…"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在复制账户数据…"
+          }
+        }
+      }
+    },
     "settings.directoryHint": {
       "extractionState": "manual",
       "localizations": {
@@ -4638,6 +4655,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "更改前请先停止新增账户。已有数据将复制到新目录，原目录保留为备份；本机默认账户仍使用原位置。"
+          }
+        }
+      }
+    },
+    "settings.directoryPreparing": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Preparing account data…"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "正在准备账户数据…"
           }
         }
       }

@@ -360,6 +360,7 @@ rows.update({
 })
 rows.update({'handoff.updatedAt': ('Updated %@', '更新于 %@')})
 rows.update({'native.stage.project': ('Restoring project membership', '恢复项目归属'), 'native.importedProject': ('Imported into project: %@', '已归入项目：%@')})
+rows.update({'settings.directoryPreparing': ('Preparing account data…', '正在准备账户数据…'), 'settings.directoryCopying': ('Copying account data…', '正在复制账户数据…')})
 output = {"sourceLanguage": "en", "strings": {key: {"extractionState": "manual", "localizations": {lang: {"stringUnit": {"state": "translated", "value": value}} for lang, value in zip(['en','zh-Hans'], pair)}} for key, pair in sorted(rows.items())}, "version": "1.0"}
 path = Path(__file__).resolve().parents[1] / 'CodexM/Resources/Localizable.xcstrings'
 path.write_text(json.dumps(output, ensure_ascii=False, indent=2) + '\n')

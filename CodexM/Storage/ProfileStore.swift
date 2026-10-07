@@ -78,9 +78,7 @@ actor ProfileStore {
         let lock = profile.electronHome(in: root).appendingPathComponent("SingletonLock")
         // Electron owns this lock. Never remove it or attempt to repair it.
         if let target = try? FileManager.default.destinationOfSymbolicLink(atPath: lock.path) {
-            try SingletonLockPolicy.validate(target: target, localHostname: ProcessInfo.processInfo.hostName) { pid in
-                kill(pid, 0) == 0 || errno == EPERM
-            }
+            try SingletonLockPolicy.validate(target: target, directory: lock.deletingLastPathComponent())
         } else if FileManager.default.fileExists(atPath: lock.path) { throw CodexMError.profileBusy }
     }
 
@@ -116,7 +114,8 @@ actor ProfileStore {
 
     /// Copy first, commit metadata atomically, then retain old folders as a rollback backup.
     /// No credential contents are parsed and official default data is never moved.
-    func relocateAccounts(to destination: URL, saving state: StoredState) throws -> StoredState {
+    func relocateAccounts(to destination: URL, saving state: StoredState, progress: @escaping @Sendable (Double?) -> Void = { _ in }) throws -> StoredState {
+        progress(nil)
         let destination = destination.standardizedFileURL
         guard destination.isFileURL, destination == destination.resolvingSymlinksInPath().standardizedFileURL else { throw CodexMError.unsafePath }
         let accounts = state.profiles.filter { !$0.isInstalledDefault }
@@ -125,6 +124,9 @@ actor ProfileStore {
             let old = profile.root(in: root).standardizedFileURL.path
             guard !destination.path.hasPrefix(old + "/"), destination.path != old else { throw CodexMError.unsafePath }
         }
+        let sources = accounts.filter { $0.root(in: root).deletingLastPathComponent().standardizedFileURL != destination && FileManager.default.fileExists(atPath: $0.root(in: root).path) }.map { $0.root(in: root) }
+        let reporter = RelocationCopyProgress(total: try RelocationCopyProgress.size(of: sources), report: progress)
+        reporter.emit(force: true)
         try ensureDirectory(destination)
         var updated = state
         var copied: [URL] = []
@@ -137,11 +139,21 @@ actor ProfileStore {
                 guard !FileManager.default.fileExists(atPath: new.path), !isSymlink(new) else { throw CodexMError.directoryNotEmpty }
                 if FileManager.default.fileExists(atPath: old.path) {
                     copied.append(new)
-                    try FileManager.default.copyItem(at: old, to: new)
+                    try reporter.copy(from: old, to: new)
+                    // Singleton IPC belongs to the old location. Leave the original
+                    // untouched and let Electron create fresh links at the destination.
+                    let electron = updated.profiles[index].electronHome(in: root)
+                    for name in ["SingletonLock", "SingletonCookie", "SingletonSocket"] {
+                        let transient = electron.appendingPathComponent(name)
+                        if isSymlink(transient) || FileManager.default.fileExists(atPath: transient.path) {
+                            try FileManager.default.removeItem(at: transient)
+                        }
+                    }
                 }
             }
             updated.preferences.accountDataDirectory = destination.path
             try save(updated)
+            progress(1)
             return updated
         } catch {
             for url in copied { try? FileManager.default.removeItem(at: url) }
@@ -163,14 +175,78 @@ actor ProfileStore {
     }
 }
 
-/// Electron uses gethostname while Foundation may normalize the hostname's case.
-/// DNS hostname case is not an ownership boundary; PID liveness still is.
+/// A hostname change can leave Electron locks with the previous machine name.
+/// On a verified local volume, a dead PID makes that lock stale. Remote or
+/// unknown volumes still require a matching hostname; never delete the lock.
 enum SingletonLockPolicy {
-    static func validate(target: String, localHostname: String, processAlive: (Int32) -> Bool) throws {
+    static func validate(target: String, directory: URL) throws {
+        let local = (try? directory.resourceValues(forKeys: [.volumeIsLocalKey]).volumeIsLocal) == true
+        try validate(target: target, localHostname: ProcessInfo.processInfo.hostName, localVolume: local) { pid in
+            if kill(pid, 0) == 0 { return true }
+            // Only ESRCH proves absence. Permissions and other failures are unknown.
+            return errno != ESRCH
+        }
+    }
+
+    static func validate(target: String, localHostname: String, localVolume: Bool = false, processAlive: (Int32) -> Bool) throws {
         guard let separator = target.lastIndex(of: "-"),
               let pid = Int32(target[target.index(after: separator)...]), pid > 0 else { throw CodexMError.profileBusy }
         guard !processAlive(pid) else { throw CodexMError.profileBusy }
         let host = String(target[..<separator])
-        guard !host.isEmpty, host.caseInsensitiveCompare(localHostname) == .orderedSame else { throw CodexMError.profileBusy }
+        guard !host.isEmpty, localVolume || host.caseInsensitiveCompare(localHostname) == .orderedSame else { throw CodexMError.profileBusy }
+    }
+}
+
+/// Used synchronously on ProfileStore's executor. The C callback does not escape copyfile.
+private final class RelocationCopyProgress {
+    let total: Int64
+    let report: @Sendable (Double?) -> Void
+    var completed: Int64 = 0
+    var current: Int64 = 0
+    var lastUpdate = Date.distantPast
+    init(total: Int64, report: @escaping @Sendable (Double?) -> Void) { self.total = total; self.report = report }
+
+    static func size(of roots: [URL]) throws -> Int64 {
+        var total: Int64 = 0
+        for root in roots {
+            var failure: Error?
+            guard let walker = FileManager.default.enumerator(at: root, includingPropertiesForKeys: [.isRegularFileKey, .fileSizeKey], errorHandler: { _, error in failure = error; return false }) else { throw CodexMError.filesystemError }
+            for case let file as URL in walker {
+                let values = try file.resourceValues(forKeys: [.isRegularFileKey, .fileSizeKey])
+                if values.isRegularFile == true { total += Int64(values.fileSize ?? 0) }
+            }
+            if let failure { throw failure }
+        }
+        return total
+    }
+    func emit(force: Bool = false) {
+        guard force || Date().timeIntervalSince(lastUpdate) >= 0.1 else { return }
+        lastUpdate = Date()
+        report(total > 0 ? min(0.99, Double(completed + current) / Double(total)) : 0)
+    }
+    func copy(from source: URL, to destination: URL) throws {
+        guard let state = copyfile_state_alloc() else { throw CodexMError.filesystemError }
+        defer { copyfile_state_free(state) }
+        let context = Unmanaged.passUnretained(self).toOpaque()
+        let callback: copyfile_callback_t = { what, stage, state, _, _, context in
+            guard let context, stage != COPYFILE_ERR, what != COPYFILE_RECURSE_ERROR else { return COPYFILE_QUIT }
+            let reporter = Unmanaged<RelocationCopyProgress>.fromOpaque(context).takeUnretainedValue()
+            if what == COPYFILE_COPY_DATA {
+                var bytes: off_t = 0
+                if stage == COPYFILE_START { reporter.current = 0 }
+                if stage == COPYFILE_PROGRESS || stage == COPYFILE_FINISH {
+                    if copyfile_state_get(state, UInt32(COPYFILE_STATE_COPIED), &bytes) == 0 { reporter.current = max(0, Int64(bytes)) }
+                    if stage == COPYFILE_FINISH { reporter.completed += reporter.current; reporter.current = 0 }
+                    reporter.emit()
+                }
+            }
+            return COPYFILE_CONTINUE
+        }
+        guard copyfile_state_set(state, UInt32(COPYFILE_STATE_STATUS_CB), unsafeBitCast(callback, to: UnsafeRawPointer.self)) == 0,
+              copyfile_state_set(state, UInt32(COPYFILE_STATE_STATUS_CTX), context) == 0 else { throw CodexMError.filesystemError }
+        guard copyfile(source.path, destination.path, state, copyfile_flags_t(COPYFILE_ALL | COPYFILE_RECURSIVE | COPYFILE_NOFOLLOW | COPYFILE_EXCL)) == 0 else {
+            throw NSError(domain: NSPOSIXErrorDomain, code: Int(errno))
+        }
+        emit(force: true)
     }
 }
