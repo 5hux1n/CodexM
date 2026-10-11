@@ -27,9 +27,7 @@ extension AppModel {
             try await store.repairHistoryBeforeLaunch(profile)
             let metadata = profile.isInstalledDefault ? nil : await authMonitor.metadata(profile: profile, root: dataRoot)
             let launchID = UUID()
-            let identity = try await runtimeService.launch(profile, root: dataRoot, runtime: runtime) { [weak self] pid, status, signal in
-                Task { @MainActor in await self?.processExited(profileID: profile.id, pid: pid, instanceID: launchID, status: status, signal: signal) }
-            }
+            let identity = try await runtimeService.launch(profile, root: dataRoot, runtime: runtime)
             let now = Date()
             instances[profile.id] = CodexInstance(id: launchID, profileID: profile.id, identity: identity, launchedAt: now, state: .running, recovered: false)
             states[profile.id] = .running
@@ -173,17 +171,6 @@ extension AppModel {
         }
     }
 
-    func processExited(profileID: UUID, pid: Int32, instanceID: UUID, status: Int32, signal: Bool) async {
-        // Process can exit before launch's actor continuation has registered it.
-        if busyProfiles.contains(profileID), instances[profileID] == nil {
-            try? await Task.sleep(for: .milliseconds(150))
-        }
-        guard let instance = instances[profileID], instance.pid == pid, instance.id == instanceID else { return }
-        let crashed = !terminationRequests.contains(profileID) && (signal || status != 0)
-        if crashed { DiagnosticJournal.record(AppFailure(id: UUID(), timestamp: Date(), code: signal ? "CM-PROCESS-signal-\(status)" : "CM-PROCESS-exit-\(status)", operation: "account.exit", messageKey: "diagnostic.processExit", technical: "status=\(status); signal=\(signal)")) }
-        await forgetInstance(profileID: profileID, expected: instance.identity, crashed: crashed)
-    }
-
     func forgetInstance(profileID: UUID, expected: ProcessIdentity, crashed: Bool) async {
         guard instances[profileID]?.identity == expected else { return }
         guard let previous = instances.removeValue(forKey: profileID) else { return }
@@ -195,7 +182,6 @@ extension AppModel {
         records.removeAll { $0.profileID == profileID }
         preferences.previouslyRunning.remove(profileID)
         await windowService.forget(pid: previous.pid)
-        await runtimeService.release(pid: previous.pid)
         await persist()
         Log.process.info("Managed instance exited; abnormal: \(crashed)")
     }

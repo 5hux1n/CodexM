@@ -65,3 +65,20 @@ swiftc -swift-version 6 -parse-as-library CodexM/Models/Models.swift CodexM/Stor
 build/profile-relocation-tests
 python3 -m unittest discover -s tests -p 'test_repair_history_paths.py'
 ```
+
+
+## 客户端权限归属与系统应用启动
+
+1.0.7 不再通过 `Process` 直接执行客户端主程序，而是通过清理环境后的 `/usr/bin/open -n -a` 请求 Launch Services 启动所选官方 App。`open` 只是短暂的启动桥接；App 的 PID 通过内核启动身份、可执行路径和账户 `--user-data-dir` 参数核验。直接使用 `NSWorkspace.OpenConfiguration.environment` 的测试发现，配置具有叠加性质，会继承来源进程的账户 IPC 等变量，因此不能代替完整环境过滤。
+
+启动后使用已有进程身份轮询检测退出。系统启动的 App 不是可等待的子进程，无法获取原来 `Process.terminationHandler` 的退出状态，界面将其标记为停止，不猜测退出是崩溃还是正常关闭。停止/重启仍只控制通过账户归属核验的正 PID；恢复已运行客户端的方式保持不变。
+
+验证：
+
+```sh
+DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer ./scripts/test_desktop_launch.sh
+```
+
+原生测试 App 验证两个独立实例、launchd 父进程、账户目录与参数、私有环境变量过滤、账户归属和独立停止。该测试不申请任何隐私权限，不代表官方客户端的具体 TCC 弹窗已经实机验收。更新后需停止旧客户端，再通过新版启动；系统已有权限不会被自动清除或转移。CodexM 自身的窗口控制辅助功能权限仍归 CodexM。需要用户确认官方客户端请求的屏幕录制/控制、麦克风等权限显示正确的 App 名称。
+
+Apple 对 Launch Services 和直接 `NSTask`/`exec` 启动的区别见 [Advances in macOS Security](https://developer.apple.com/videos/play/wwdc2019/701/)。

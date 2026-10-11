@@ -3,7 +3,7 @@ import AppKit
 protocol CodexRuntimeAdapter: Sendable {
     func inspect(appURL: URL) throws -> RuntimeInfo
     func owns(_ identity: ProcessIdentity, profile: Profile, root: URL) -> Bool
-    func launch(profile: Profile, root: URL, runtime: RuntimeInfo, onExit: @escaping @Sendable (Int32, Int32, Bool) -> Void) throws -> (Process, ProcessIdentity)
+    func launch(profile: Profile, root: URL, runtime: RuntimeInfo) async throws -> ProcessIdentity
 }
 
 struct OpenAICodexDesktopAdapter: CodexRuntimeAdapter {
@@ -36,19 +36,10 @@ struct OpenAICodexDesktopAdapter: CodexRuntimeAdapter {
         return RuntimeInfo(appURL: appURL, executableURL: executable, bundleID: "com.openai.codex", version: info["CFBundleShortVersionString"] as? String ?? "?", build: info["CFBundleVersion"] as? String ?? "?")
     }
 
-    func launch(profile: Profile, root: URL, runtime: RuntimeInfo, onExit: @escaping @Sendable (Int32, Int32, Bool) -> Void) throws -> (Process, ProcessIdentity) {
-        let process = Process()
-        process.executableURL = runtime.executableURL
-        process.environment = Self.environment(profile: profile, root: root, parent: ProcessInfo.processInfo.environment)
-        process.arguments = ["--user-data-dir=\(profile.electronHome(in: root).path)"]
-        process.currentDirectoryURL = profile.root(in: root)
-        process.standardInput = FileHandle.nullDevice
-        process.standardOutput = FileHandle.nullDevice
-        process.standardError = FileHandle.nullDevice
-        process.terminationHandler = { child in onExit(child.processIdentifier, child.terminationStatus, child.terminationReason == .uncaughtSignal) }
-        do { try process.run() } catch { throw AppFailure.capture(error, operation: "account.launch") }
-        guard let identity = ProcessProbe.identity(pid: process.processIdentifier) else { throw CodexMError.launchFailed }
-        return (process, identity)
+    func launch(profile: Profile, root: URL, runtime: RuntimeInfo) async throws -> ProcessIdentity {
+        let identity = try await DesktopApplicationLauncher.launch(profile: profile, root: root, runtime: runtime)
+        guard owns(identity, profile: profile, root: root) else { throw CodexMError.ambiguousInstance }
+        return identity
     }
 
     static func environment(profile: Profile, root: URL, parent: [String: String]) -> [String: String] {
@@ -66,11 +57,43 @@ struct OpenAICodexDesktopAdapter: CodexRuntimeAdapter {
     }
 }
 
-struct ProcessExit: Sendable { let status: Int32; let signaled: Bool }
+/// Launch Services starts the official app as an application rather than as
+/// CodexM's child process, so privacy requests can use the client's identity.
+enum DesktopApplicationLauncher {
+    static func launch(profile: Profile, root: URL, runtime: RuntimeInfo) async throws -> ProcessIdentity {
+        let executable = runtime.executableURL.resolvingSymlinksInPath().path
+        let existing = Set(ProcessProbe.allIdentities(executables: [executable]))
+        // NSWorkspace's environment is additive and can inherit the caller's
+        // account IPC/credentials. A clean /usr/bin/open bridge uses the same
+        // Launch Services path without propagating the manager's environment.
+        let launcher = Process()
+        launcher.executableURL = URL(fileURLWithPath: "/usr/bin/open")
+        launcher.arguments = ["-n", "-a", runtime.appURL.path, "--args", "--user-data-dir=\(profile.electronHome(in: root).path)"]
+        launcher.environment = OpenAICodexDesktopAdapter.environment(profile: profile, root: root, parent: ProcessInfo.processInfo.environment)
+        launcher.currentDirectoryURL = profile.root(in: root)
+        launcher.standardInput = FileHandle.nullDevice
+        launcher.standardOutput = FileHandle.nullDevice
+        launcher.standardError = FileHandle.nullDevice
+        let status: Int32 = try await withCheckedThrowingContinuation { continuation in
+            launcher.terminationHandler = { child in continuation.resume(returning: child.terminationStatus) }
+            do { try launcher.run() }
+            catch { continuation.resume(throwing: AppFailure.capture(error, operation: "account.launch")) }
+        }
+        guard status == 0 else { throw CodexMError.launchFailed }
+        for _ in 0..<200 {
+            let candidates = ProcessProbe.allIdentities(executables: [executable]).filter {
+                !existing.contains($0) && OpenAICodexDesktopAdapter().owns($0, profile: profile, root: root)
+            }
+            guard candidates.count <= 1 else { throw CodexMError.ambiguousInstance }
+            if let identity = candidates.first { return identity }
+            try await Task.sleep(for: .milliseconds(50))
+        }
+        throw CodexMError.launchFailed
+    }
+}
 
 actor RuntimeService {
     private let adapter: any CodexRuntimeAdapter
-    private var processes: [Int32: Process] = [:]
     init(adapter: any CodexRuntimeAdapter = OpenAICodexDesktopAdapter()) { self.adapter = adapter }
 
     func detect(preferred: String?, discovered: URL?) -> RuntimeInfo? {
@@ -93,20 +116,13 @@ actor RuntimeService {
     }
     func arguments(pid: Int32) -> [String]? { ProcessProbe.arguments(pid: pid) }
     func currentIdentity(pid: Int32) -> ProcessIdentity? { ProcessProbe.identity(pid: pid) }
-    func exitOutcome(pid: Int32) -> ProcessExit? {
-        guard let process = processes[pid], !process.isRunning else { return nil }
-        return ProcessExit(status: process.terminationStatus, signaled: process.terminationReason == .uncaughtSignal)
-    }
     func matches(_ identity: ProcessIdentity) -> Bool { ProcessProbe.matches(identity) }
-    func launch(_ profile: Profile, root: URL, runtime: RuntimeInfo, onExit: @escaping @Sendable (Int32, Int32, Bool) -> Void) throws -> ProcessIdentity {
+    func launch(_ profile: Profile, root: URL, runtime: RuntimeInfo) async throws -> ProcessIdentity {
         _ = try adapter.inspect(appURL: runtime.appURL)
-        let (process, identity) = try adapter.launch(profile: profile, root: root, runtime: runtime, onExit: onExit)
-        processes[identity.pid] = process
-        return identity
+        return try await adapter.launch(profile: profile, root: root, runtime: runtime)
     }
     func terminate(_ identity: ProcessIdentity, profile: Profile, root: URL, force: Bool) -> Bool {
         guard identity.pid > 0, adapter.owns(identity, profile: profile, root: root), ProcessProbe.matches(identity) else { return false }
         return kill(identity.pid, force ? SIGKILL : SIGTERM) == 0
     }
-    func release(pid: Int32) { processes.removeValue(forKey: pid) }
 }

@@ -24,20 +24,10 @@ extension AppModel {
         let found = await runtimeService.scan(executables: paths)
         let identities = Set(found)
         for (id, instance) in instances where !identities.contains(instance.identity) && !busyProfiles.contains(id) {
-            if !instance.recovered {
-                if let exit = await runtimeService.exitOutcome(pid: instance.pid) {
-                    let crashed = !terminationRequests.contains(id) && (exit.signaled || exit.status != 0)
-                    if crashed { DiagnosticJournal.record(AppFailure(id: UUID(), timestamp: Date(), code: exit.signaled ? "CM-PROCESS-signal-\(exit.status)" : "CM-PROCESS-exit-\(exit.status)", operation: "account.exit", messageKey: "diagnostic.processExit", technical: "status=\(exit.status); signal=\(exit.signaled)")) }
-                    await forgetInstance(profileID: id, expected: instance.identity, crashed: crashed)
-                } else if let current = await runtimeService.currentIdentity(pid: instance.pid), current != instance.identity {
-                    // A changed identity is quarantined, never controlled as the old instance.
-                    await forgetInstance(profileID: id, expected: instance.identity, crashed: false)
-                }
-                // Wait for the Process callback if NSWorkspace reported termination first.
-            } else {
-                // Reattached processes have no wait status. Do not invent a crash diagnosis.
-                await forgetInstance(profileID: id, expected: instance.identity, crashed: false)
-            }
+            // Launch Services processes are not waitable children. Kernel
+            // identity disappearance (including PID reuse) is the exit signal;
+            // an exit status is unavailable, so do not invent a crash diagnosis.
+            await forgetInstance(profileID: id, expected: instance.identity, crashed: false)
         }
         for record in records where identities.contains(record.identity) && profiles.contains(where: { $0.id == record.profileID }) {
             if instances[record.profileID] == nil {
