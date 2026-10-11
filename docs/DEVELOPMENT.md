@@ -42,3 +42,24 @@ SQLite 错误保留主错误码、扩展错误码、系统 errno 和已知数据
 接到问题时，先按定位编号匹配记录，再核对操作阶段和底层代码。不要要求用户共享认证文件、完整数据库或私人会话。构建成功不等于 macOS 系统权限或窗口行为已通过实际验收。
 
 原生导入后的 SQLite 完整性检查只覆盖任务历史库 `state_5.sqlite`、`thread_history_1.sqlite` 和 `goals_1.sqlite`。日志、队列、记忆等辅助库有独立生命周期，其故障不用于判定任务历史导入失败；原有历史内容对比、任务路径检查和备份/回滚保护仍然执行。
+
+
+## 迁移后旧会话无法打开
+
+`failed to resolve rollout path ... file does not exist` 可能是历史索引仍使用旧账户目录的绝对路径。1.0.5 在复制后、提交账户位置前重写目标 `state_*.sqlite` 的 `threads.rollout_path`，核验对应 JSONL 首行会话 ID；不修改原目录，也不更改会话内容、项目归属、目标状态或时间。无法找到的既有历史文件保持原记录。
+
+已有账户可先用只读工具检查：
+
+```sh
+python3 scripts/repair_history_paths.py --home "/实际账户目录/账户UUID/codex"
+```
+
+完全退出所有官方客户端（关闭窗口不足以退出），再执行同一命令并添加 `--apply`。工具会拒绝检测到的运行客户端，在账户目录创建权限受限的数据库备份，并仅更新匹配会话 ID 的路径。保留备份以便调查；它包含私人会话元数据，请勿上传。启动客户端后验证原会话可读取、可继续。
+
+验证命令：
+
+```sh
+swiftc -swift-version 6 -parse-as-library CodexM/Models/Models.swift CodexM/Storage/ProfileStore.swift tests/ProfileRelocation.swift -o build/profile-relocation-tests -lsqlite3
+build/profile-relocation-tests
+python3 -m unittest discover -s tests -p 'test_repair_history_paths.py'
+```

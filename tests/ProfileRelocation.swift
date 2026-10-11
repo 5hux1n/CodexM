@@ -1,5 +1,6 @@
 import Foundation
 import Darwin
+import SQLite3
 
 // Minimal error adapter for compiling the real store without the app UI/journal.
 enum CodexMError: Error {
@@ -49,6 +50,37 @@ final class ProgressRecorder: @unchecked Sendable {
         _ = try await store.load()
         let profile = Profile(id: UUID(), name: "Fixture", createdAt: Date())
         try await store.prepare(profile)
+        let historyHome = profile.codexHome(in: root)
+        let historyDB = historyHome.appendingPathComponent("state_5.sqlite")
+        let session = historyHome.appendingPathComponent("sessions/2026/10/01/rollout-fixture.jsonl")
+        let archive = historyHome.appendingPathComponent("archived_sessions/rollout-archive.jsonl")
+        for (url, id) in [(session, "fixture"), (archive, "archive")] {
+            try fm.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+            let meta: [String: Any] = ["type": "session_meta", "payload": ["id": id]]
+            var data = try JSONSerialization.data(withJSONObject: meta)
+            data.append(10)
+            try data.write(to: url)
+        }
+        func sql(_ file: URL, _ query: String) throws {
+            var db: OpaquePointer?
+            precondition(sqlite3_open(file.path, &db) == SQLITE_OK)
+            defer { sqlite3_close(db) }
+            precondition(sqlite3_exec(db, query, nil, nil, nil) == SQLITE_OK)
+        }
+        try sql(historyDB, "CREATE TABLE threads (id TEXT PRIMARY KEY, rollout_path TEXT, title TEXT); INSERT INTO threads VALUES ('fixture', '\(session.path)', 'kept'), ('archive', '/obsolete/codex/archived_sessions/rollout-archive.jsonl', 'archived'), ('missing', '/obsolete/codex/sessions/rollout-missing.jsonl', 'missing');")
+        func historyPaths(_ file: URL) -> [String: String] {
+            var db: OpaquePointer?, statement: OpaquePointer?
+            precondition(sqlite3_open_v2(file.path, &db, SQLITE_OPEN_READONLY, nil) == SQLITE_OK)
+            defer { sqlite3_close(db) }
+            precondition(sqlite3_prepare_v2(db, "SELECT id, rollout_path FROM threads", -1, &statement, nil) == SQLITE_OK)
+            defer { sqlite3_finalize(statement) }
+            var result: [String: String] = [:]
+            while sqlite3_step(statement) == SQLITE_ROW {
+                result[String(cString: sqlite3_column_text(statement, 0))] = String(cString: sqlite3_column_text(statement, 1))
+            }
+            return result
+        }
+        let originalPaths = historyPaths(historyDB)
         let fixture = profile.codexHome(in: root).appendingPathComponent("fixture.txt")
         try Data("fixture-data".utf8).write(to: fixture)
         // Get a definitely exited PID rather than assuming a large PID is absent.
@@ -69,6 +101,21 @@ final class ProgressRecorder: @unchecked Sendable {
         precondition(fractions.contains { $0 > 0 && $0 < 1 })
         precondition(zip(fractions, fractions.dropFirst()).allSatisfy { $0 <= $1 })
         let relocated = moved.profiles[0]
+        let newHome = relocated.codexHome(in: root)
+        let newDB = newHome.appendingPathComponent("state_5.sqlite")
+        let paths = historyPaths(newDB)
+        precondition(paths["fixture"] == newHome.appendingPathComponent("sessions/2026/10/01/rollout-fixture.jsonl").path)
+        precondition(paths["archive"] == newHome.appendingPathComponent("archived_sessions/rollout-archive.jsonl").path)
+        precondition(paths["missing"] == originalPaths["missing"])
+        precondition(historyPaths(historyDB) == originalPaths)
+        // A wrong session identity rejects the move and leaves metadata/source intact.
+        let badHome = sandbox.appendingPathComponent("bad")
+        try fm.copyItem(at: newHome, to: badHome)
+        try Data("{\"type\":\"session_meta\",\"payload\":{\"id\":\"wrong\"}}\n".utf8).write(to: badHome.appendingPathComponent("sessions/2026/10/01/rollout-fixture.jsonl"))
+        do { try RelocatedHistory.rebase(home: badHome); fatalError("Accepted mismatched history") }
+        catch CodexMError.corruptStorage { }
+        precondition(historyPaths(badHome.appendingPathComponent("state_5.sqlite")) == paths)
+        print("PASS: active/archive path rebasing, prior relocation paths, missing-file preservation, source database preservation, identity failure rollback")
         let movedLarge = try Data(contentsOf: relocated.codexHome(in: root).appendingPathComponent("large.bin"))
         precondition(movedLarge == Data(repeating: 0x5a, count: 16 * 1024 * 1024))
         let copiedData = try Data(contentsOf: relocated.codexHome(in: root).appendingPathComponent("fixture.txt"))

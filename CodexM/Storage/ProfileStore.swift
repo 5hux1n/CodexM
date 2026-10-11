@@ -1,5 +1,6 @@
 import Foundation
 import Darwin
+import SQLite3
 
 /// Serializes all metadata transactions and holds a cross-process application lease.
 /// Profile data and authentication files are never decoded by this store.
@@ -149,6 +150,9 @@ actor ProfileStore {
                             try FileManager.default.removeItem(at: transient)
                         }
                     }
+                    // History indexes contain absolute paths. Rebase the copied
+                    // database before committing the new account location.
+                    try RelocatedHistory.rebase(home: updated.profiles[index].codexHome(in: root))
                 }
             }
             updated.preferences.accountDataDirectory = destination.path
@@ -172,6 +176,74 @@ actor ProfileStore {
     }
     private func isSymlink(_ url: URL) -> Bool {
         (try? FileManager.default.attributesOfItem(atPath: url.path)[.type] as? FileAttributeType) == .typeSymbolicLink
+    }
+}
+
+enum RelocatedHistory {
+    /// Only edits a stopped, copied account. Unrecoverable pre-existing missing
+    /// files stay missing; never invent history or modify the source database.
+    static func rebase(home: URL) throws {
+        let fm = FileManager.default
+        let databases = try fm.contentsOfDirectory(at: home, includingPropertiesForKeys: nil)
+            .filter { $0.lastPathComponent.hasPrefix("state_") && $0.pathExtension == "sqlite" }
+        for file in databases {
+            guard file.standardizedFileURL == file.resolvingSymlinksInPath().standardizedFileURL else { throw CodexMError.unsafePath }
+            var db: OpaquePointer?
+            guard sqlite3_open_v2(file.path, &db, SQLITE_OPEN_READWRITE, nil) == SQLITE_OK else {
+                if let db { sqlite3_close(db) }; throw CodexMError.filesystemError
+            }
+            defer { sqlite3_close(db) }
+            func execute(_ sql: String) throws {
+                guard sqlite3_exec(db, sql, nil, nil, nil) == SQLITE_OK else { throw CodexMError.filesystemError }
+            }
+            try execute("BEGIN IMMEDIATE")
+            do {
+                var query: OpaquePointer?
+                guard sqlite3_prepare_v2(db, "SELECT id, rollout_path FROM threads", -1, &query, nil) == SQLITE_OK else { throw CodexMError.corruptStorage }
+                defer { sqlite3_finalize(query) }
+                var changes: [(String, String, String)] = []
+                while true {
+                    let result = sqlite3_step(query)
+                    if result == SQLITE_DONE { break }
+                    guard result == SQLITE_ROW, let idText = sqlite3_column_text(query, 0), let pathText = sqlite3_column_text(query, 1) else { throw CodexMError.corruptStorage }
+                    let id = String(cString: idText), old = String(cString: pathText)
+                    let parts = old.split(separator: "/").map(String.init)
+                    guard let start = parts.lastIndex(where: { ["sessions", "archived_sessions"].contains($0) }),
+                          !parts[start...].contains(".."), !parts[start...].contains(".") else { throw CodexMError.unsafePath }
+                    let candidate = home.appendingPathComponent(parts[start...].joined(separator: "/"))
+                    guard candidate.standardizedFileURL == candidate.resolvingSymlinksInPath().standardizedFileURL else { throw CodexMError.unsafePath }
+                    if !fm.fileExists(atPath: candidate.path) {
+                        // A successful copy must not strand a history file that
+                        // still exists at the original absolute path.
+                        if fm.fileExists(atPath: old) { throw CodexMError.corruptStorage }
+                        continue
+                    }
+                    guard candidate.lastPathComponent.hasPrefix("rollout-"), candidate.pathExtension == "jsonl" else { throw CodexMError.unsafePath }
+                    let handle = try FileHandle(forReadingFrom: candidate)
+                    let prefix: Data
+                    do { prefix = try handle.read(upToCount: 1_048_576) ?? Data(); try handle.close() }
+                    catch { try? handle.close(); throw error }
+                    guard let newline = prefix.firstIndex(of: 10),
+                          let meta = try JSONSerialization.jsonObject(with: prefix[..<newline]) as? [String: Any],
+                          meta["type"] as? String == "session_meta",
+                          let payload = meta["payload"] as? [String: Any], payload["id"] as? String == id else { throw CodexMError.corruptStorage }
+                    if old != candidate.path { changes.append((id, old, candidate.path)) }
+                }
+                for (id, old, new) in changes {
+                    var update: OpaquePointer?
+                    guard sqlite3_prepare_v2(db, "UPDATE threads SET rollout_path=? WHERE id=? AND rollout_path=?", -1, &update, nil) == SQLITE_OK else { throw CodexMError.corruptStorage }
+                    defer { sqlite3_finalize(update) }
+                    let transient = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
+                    for (index, value) in [new, id, old].enumerated() {
+                        guard sqlite3_bind_text(update, Int32(index + 1), value, -1, transient) == SQLITE_OK else { throw CodexMError.filesystemError }
+                    }
+                    guard sqlite3_step(update) == SQLITE_DONE, sqlite3_changes(db) == 1 else { throw CodexMError.corruptStorage }
+                }
+                try execute("COMMIT")
+                // Do not depend on copied WAL files after the new app starts.
+                guard sqlite3_wal_checkpoint_v2(db, nil, SQLITE_CHECKPOINT_TRUNCATE, nil, nil) == SQLITE_OK else { throw CodexMError.filesystemError }
+            } catch { try? execute("ROLLBACK"); throw error }
+        }
     }
 }
 
