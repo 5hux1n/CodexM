@@ -3,7 +3,7 @@ import Darwin
 import SQLite3
 
 /// Serializes all metadata transactions and holds a cross-process application lease.
-/// Profile data and authentication files are never decoded by this store.
+/// Credentials are never decoded. History repair reads only session metadata.
 actor ProfileStore {
     nonisolated let root: URL
     private var lockFD: Int32 = -1
@@ -81,6 +81,15 @@ actor ProfileStore {
         if let target = try? FileManager.default.destinationOfSymbolicLink(atPath: lock.path) {
             try SingletonLockPolicy.validate(target: target, directory: lock.deletingLastPathComponent())
         } else if FileManager.default.fileExists(atPath: lock.path) { throw CodexMError.profileBusy }
+    }
+
+    /// The caller also checks managed/unknown processes before reaching here.
+    /// Repair existing accounts before launching the official client, with a
+    /// SQLite snapshot rather than a raw copy of a potentially WAL-backed DB.
+    func repairHistoryBeforeLaunch(_ profile: Profile) throws {
+        guard !profile.isInstalledDefault else { return }
+        try assertNotLocked(profile)
+        try RelocatedHistory.rebase(home: profile.codexHome(in: root), backupBeforeChanges: true)
     }
 
     func delete(_ profile: Profile, saving state: StoredState) throws {
@@ -180,9 +189,9 @@ actor ProfileStore {
 }
 
 enum RelocatedHistory {
-    /// Only edits a stopped, copied account. Unrecoverable pre-existing missing
+    /// Only edits a stopped account (or its relocation copy). Existing missing
     /// files stay missing; never invent history or modify the source database.
-    static func rebase(home: URL) throws {
+    static func rebase(home: URL, backupBeforeChanges: Bool = false) throws {
         let fm = FileManager.default
         let databases = try fm.contentsOfDirectory(at: home, includingPropertiesForKeys: nil)
             .filter { $0.lastPathComponent.hasPrefix("state_") && $0.pathExtension == "sqlite" }
@@ -229,6 +238,11 @@ enum RelocatedHistory {
                           let payload = meta["payload"] as? [String: Any], payload["id"] as? String == id else { throw CodexMError.corruptStorage }
                     if old != candidate.path { changes.append((id, old, candidate.path)) }
                 }
+                if backupBeforeChanges && !changes.isEmpty {
+                    let backup = home.appendingPathComponent("history-path-backup-" + UUID().uuidString, isDirectory: true)
+                    try fm.createDirectory(at: backup, withIntermediateDirectories: false, attributes: [.posixPermissions: 0o700])
+                    try snapshot(file, to: backup.appendingPathComponent(file.lastPathComponent))
+                }
                 for (id, old, new) in changes {
                     var update: OpaquePointer?
                     guard sqlite3_prepare_v2(db, "UPDATE threads SET rollout_path=? WHERE id=? AND rollout_path=?", -1, &update, nil) == SQLITE_OK else { throw CodexMError.corruptStorage }
@@ -244,6 +258,21 @@ enum RelocatedHistory {
                 guard sqlite3_wal_checkpoint_v2(db, nil, SQLITE_CHECKPOINT_TRUNCATE, nil, nil) == SQLITE_OK else { throw CodexMError.filesystemError }
             } catch { try? execute("ROLLBACK"); throw error }
         }
+    }
+
+    private static func snapshot(_ source: URL, to destination: URL) throws {
+        var reader: OpaquePointer?, writer: OpaquePointer?
+        defer { if let reader { sqlite3_close(reader) }; if let writer { sqlite3_close(writer) } }
+        guard sqlite3_open_v2(source.path, &reader, SQLITE_OPEN_READONLY, nil) == SQLITE_OK,
+              sqlite3_open_v2(destination.path, &writer, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_EXCLUSIVE, nil) == SQLITE_OK else { throw CodexMError.filesystemError }
+        try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: destination.path)
+        guard let backup = sqlite3_backup_init(writer, "main", reader, "main") else { throw CodexMError.filesystemError }
+        let copied = sqlite3_backup_step(backup, -1)
+        let finished = sqlite3_backup_finish(backup)
+        guard copied == SQLITE_DONE, finished == SQLITE_OK else { throw CodexMError.filesystemError }
+        // Make the snapshot standalone: a backup inherits the source's WAL
+        // header but must not need sidecars when opened read-only for recovery.
+        guard sqlite3_exec(writer, "PRAGMA journal_mode=DELETE", nil, nil, nil) == SQLITE_OK else { throw CodexMError.filesystemError }
     }
 }
 

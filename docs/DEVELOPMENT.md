@@ -48,7 +48,9 @@ SQLite 错误保留主错误码、扩展错误码、系统 errno 和已知数据
 
 `failed to resolve rollout path ... file does not exist` 可能是历史索引仍使用旧账户目录的绝对路径。1.0.5 在复制后、提交账户位置前重写目标 `state_*.sqlite` 的 `threads.rollout_path`，核验对应 JSONL 首行会话 ID；不修改原目录，也不更改会话内容、项目归属、目标状态或时间。无法找到的既有历史文件保持原记录。
 
-已有账户可先用只读工具检查：
+1.0.6 对已有新增账户在启动前执行同样的路径修复：先通过进程与 Electron 锁检查，在 SQLite 写事务内核验路径和会话 ID，使用 SQLite Backup API 保存含 WAL 数据的快照，再修正路径。备份转为独立数据库并以 0600 权限保存在账户目录的 `history-path-backup-*` 子目录。已正确的路径不会重复产生备份；运行中的账户需要先在 CodexM 停止，然后重新启动。默认账户不执行自动修复。
+
+已有账户也可先用只读工具检查：
 
 ```sh
 python3 scripts/repair_history_paths.py --home "/实际账户目录/账户UUID/codex"

@@ -72,7 +72,7 @@ final class ProgressRecorder: @unchecked Sendable {
             var db: OpaquePointer?, statement: OpaquePointer?
             precondition(sqlite3_open_v2(file.path, &db, SQLITE_OPEN_READONLY, nil) == SQLITE_OK)
             defer { sqlite3_close(db) }
-            precondition(sqlite3_prepare_v2(db, "SELECT id, rollout_path FROM threads", -1, &statement, nil) == SQLITE_OK)
+            guard sqlite3_prepare_v2(db, "SELECT id, rollout_path FROM threads", -1, &statement, nil) == SQLITE_OK else { fatalError("\(file.path): \(String(cString: sqlite3_errmsg(db)))") }
             defer { sqlite3_finalize(statement) }
             var result: [String: String] = [:]
             while sqlite3_step(statement) == SQLITE_ROW {
@@ -128,8 +128,28 @@ final class ProgressRecorder: @unchecked Sendable {
         precondition(!fm.fileExists(atPath: newLock.path))
         precondition(moved.profiles[1] == state.profiles[1])
         precondition(moved.preferences.accountDataDirectory == destination.path)
+        // Existing accounts are repaired at launch, not just during relocation.
+        try sql(newDB, "UPDATE threads SET rollout_path='\(session.path)' WHERE id='fixture';")
+        let beforeLaunchRepair = historyPaths(newDB)
+        var walWriter: OpaquePointer?
+        precondition(sqlite3_open(newDB.path, &walWriter) == SQLITE_OK)
+        precondition(sqlite3_exec(walWriter, "PRAGMA journal_mode=WAL; UPDATE threads SET title='WAL preserved' WHERE id='fixture';", nil, nil, nil) == SQLITE_OK)
+        try await store.repairHistoryBeforeLaunch(relocated)
+        sqlite3_close(walWriter)
+        precondition(historyPaths(newDB)["fixture"] == paths["fixture"])
+        let backups = try fm.contentsOfDirectory(at: newHome, includingPropertiesForKeys: nil).filter { $0.lastPathComponent.hasPrefix("history-path-backup-") }
+        precondition(backups.count == 1)
+        precondition(historyPaths(backups[0].appendingPathComponent("state_5.sqlite")) == beforeLaunchRepair)
+        let backupMode = try fm.attributesOfItem(atPath: backups[0].appendingPathComponent("state_5.sqlite").path)[.posixPermissions] as? NSNumber
+        precondition(backupMode?.intValue == 0o600)
+        try await store.repairHistoryBeforeLaunch(relocated)
+        let again = try fm.contentsOfDirectory(at: newHome, includingPropertiesForKeys: nil).filter { $0.lastPathComponent.hasPrefix("history-path-backup-") }
+        precondition(again.count == 1)
+        print("PASS: existing-account launch repair, WAL-aware private backup, idempotent second launch")
         let relocatedLock = relocated.electronHome(in: root).appendingPathComponent("SingletonLock")
         try fm.createSymbolicLink(atPath: relocatedLock.path, withDestinationPath: "old-machine.local-\(getpid())")
+        do { try await store.repairHistoryBeforeLaunch(relocated); fatalError("Repaired a live-locked account") }
+        catch CodexMError.profileBusy { }
         do {
             _ = try await store.relocateAccounts(to: sandbox.appendingPathComponent("blocked"), saving: moved)
             fatalError("Moved a live-locked profile")

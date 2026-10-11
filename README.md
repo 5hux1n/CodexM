@@ -10,9 +10,9 @@
 
 为不同账户保留独立登录状态，从菜单栏切换窗口，并通过项目接力继续已有任务。
 
-**当前版本：1.0.5 · macOS 14+ · Apple Silicon / Intel**
+**当前版本：1.0.6 · macOS 14+ · Apple Silicon / Intel**
 
-修复更改账户数据目录后，历史索引仍指向旧位置、导致旧会话无法读取或继续的问题。迁移时核验会话身份并更新复制后数据库的历史路径，原目录保留作为备份。
+修复更改账户数据目录后旧会话无法打开的问题。已有账户在启动前自动备份并修正历史路径，无需单独运行恢复脚本；迁移时也会更新历史索引。
 
 CodexM 是独立开发的开源工具，与 OpenAI 无隶属或背书关系，不包含官方客户端。
 
@@ -32,7 +32,7 @@ export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
 open dist/CodexM.app
 ```
 
-如果 Xcode 安装在其他位置，请修改 `DEVELOPER_DIR`。构建会生成 `dist/CodexM.app`、`dist/CodexM-v1.0.5-macOS.dmg` 和 ZIP 压缩包。将应用放到固定位置后使用。
+如果 Xcode 安装在其他位置，请修改 `DEVELOPER_DIR`。构建会生成 `dist/CodexM.app`、`dist/CodexM-v1.0.6-macOS.dmg` 和 ZIP 压缩包。将应用放到固定位置后使用。
 
 当前发布包及本地构建采用 ad-hoc 签名，未经 Developer ID 签名或 Apple 公证。替换应用后，macOS 可能要求重新授予辅助功能权限。
 

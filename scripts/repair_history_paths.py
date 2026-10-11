@@ -69,6 +69,7 @@ def apply(home):
                 saved = backup / db.name
                 with closing(sqlite3.connect(saved)) as target:
                     conn.backup(target)
+                    target.execute('PRAGMA journal_mode=DELETE')
                 os.chmod(saved, 0o600)
                 conn.execute('BEGIN IMMEDIATE')
                 try:

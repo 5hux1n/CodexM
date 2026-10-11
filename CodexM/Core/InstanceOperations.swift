@@ -24,6 +24,7 @@ extension AppModel {
             guard let runtime else { throw CodexMError.codexNotFound }
             try await store.prepare(profile)
             try await store.assertNotLocked(profile)
+            try await store.repairHistoryBeforeLaunch(profile)
             let metadata = profile.isInstalledDefault ? nil : await authMonitor.metadata(profile: profile, root: dataRoot)
             let launchID = UUID()
             let identity = try await runtimeService.launch(profile, root: dataRoot, runtime: runtime) { [weak self] pid, status, signal in
