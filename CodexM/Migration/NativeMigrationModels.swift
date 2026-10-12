@@ -1,7 +1,7 @@
 import Foundation
 
 enum NativeMigrationError: String, Error, LocalizedError {
-    case runtime, capability, busy, conflict, incompatible, unsupported, changed, invalid, helper, rollbackChanged, recovery, diverged, owner
+    case runtime, capability, busy, conflict, incompatible, unsupported, changed, invalid, helper, rollbackChanged, recovery, diverged, owner, historyBase
     var errorDescription: String? { L10n.text("native.error.\(rawValue)") }
 }
 

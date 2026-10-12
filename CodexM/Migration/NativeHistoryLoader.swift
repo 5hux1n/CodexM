@@ -232,6 +232,16 @@ enum NativeHistoryLoader {
           catch { throw AppFailure.capture(error, operation: "native." + stage) }
     }
     static func load(binary: URL, home: URL, project: String, threadID: String, hydrate: Bool) throws -> NativeEvidence {
+        try evidence(binary: binary, home: home, project: project, threadID: threadID, hydrate: hydrate, skipping: 0)
+    }
+    /// The paginated API can return only locally projected fork turns until
+    /// ancestors have been projected. Verify that every returned turn survives
+    /// at the end of the complete materialized history.
+    static func suffix(binary: URL, home: URL, project: String, threadID: String, skipping: Int) throws -> NativeEvidence {
+        guard skipping >= 0 else { throw NativeMigrationError.historyBase }
+        return try evidence(binary: binary, home: home, project: project, threadID: threadID, hydrate: false, skipping: skipping)
+    }
+    private static func evidence(binary: URL, home: URL, project: String, threadID: String, hydrate: Bool, skipping: Int) throws -> NativeEvidence {
         let child = try NativeChild(binary: binary, arguments: ["app-server", "--stdio", "-c", "analytics.enabled=false", "-c", "mcp_servers={}", "-c", "cli_auth_credentials_store=\"file\""], home: home, cwd: home)
         defer { child.close() }
         try child.initialize()
@@ -244,7 +254,7 @@ enum NativeHistoryLoader {
         let result = try child.call("thread/read", ["threadId": threadID, "includeTurns": false])
         guard let thread = result["thread"] as? [String: Any], thread["id"] as? String == threadID else { throw NativeMigrationDiagnostic(stage: "read", code: "threadIdentityMismatch") }
         var cursor: String?
-        var totalTurns = 0, totalItems = 0
+        var totalTurns = 0, totalItems = 0, position = 0
         var seen: Set<String> = []
         var hasher = SHA256()
         for _ in 0..<1000 {
@@ -252,8 +262,10 @@ enum NativeHistoryLoader {
             if let cursor { params["cursor"] = cursor }
             let page = try child.call("thread/turns/list", params)
             guard let turns = page["data"] as? [[String: Any]] else { throw NativeMigrationDiagnostic(stage: "page", code: "missingTurns") }
-            totalTurns += turns.count
             for turn in turns {
+                defer { position += 1 }
+                if position < skipping { continue }
+                totalTurns += 1
                 guard let items = turn["items"] as? [[String: Any]] else { throw NativeMigrationDiagnostic(stage: "page", code: "missingItems") }
                 totalItems += items.count
                 hasher.update(data: try JSONSerialization.data(withJSONObject: turn, options: [.sortedKeys]))

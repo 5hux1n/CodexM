@@ -3163,6 +3163,23 @@
         }
       }
     },
+    "native.error.historyBase": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Inherited history is missing, ambiguous, changed, or failed full-history verification. The task cannot be transferred safely; restore its history files or use Context Handoff."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "继承历史缺失、存在多个候选、发生变化或未通过完整历史核验，无法安全迁移。请恢复历史文件，或使用上下文接力。"
+          }
+        }
+      }
+    },
     "native.error.incompatible": {
       "extractionState": "manual",
       "localizations": {
@@ -3271,13 +3288,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "This migration mode supports unarchived independent tasks. Tasks with related subtasks, goals, artifacts or dynamic tools require Context Handoff."
+            "value": "This migration supports unarchived tasks, including verified conversation forks. Tasks with linked subtasks, goals, artifacts or dynamic tools require Context Handoff."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "此迁移方式支持未归档的独立任务。包含关联子任务、目标、附件或动态工具的任务请使用上下文接力。"
+            "value": "支持未归档任务及通过完整历史核验的分叉会话。包含关联子任务、目标、附件或动态工具的任务仍需使用上下文接力。"
           }
         }
       }

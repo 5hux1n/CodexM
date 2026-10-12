@@ -119,3 +119,121 @@ final class NativeRolloutReader {
         }
     }
 }
+
+/// Paginated forks refer to immutable prefixes of older rollout generations.
+/// Materialize those prefixes in a private copy; never rewrite the source.
+enum NativePortableRollout {
+    struct Snapshot {
+        let rollout: URL
+        let inputs: [URL: String]
+        let referenceHome: URL?
+        func validate() throws {
+            for (url, hash) in inputs where try NativeFiles.hash(url) != hash { throw NativeMigrationError.changed }
+        }
+    }
+    static func prepare(_ source: URL, home: URL, workspace: URL) throws -> Snapshot {
+        func header(_ file: URL) throws -> [String: Any] {
+            let reader = try NativeRolloutReader(file)
+            guard let line = try reader.next(), let row = try JSONSerialization.jsonObject(with: line) as? [String: Any],
+                  row["type"] as? String == "session_meta", row["payload"] is [String: Any] else { throw NativeMigrationError.invalid }
+            return row
+        }
+        var top = try header(source)
+        var meta = top["payload"] as! [String: Any]
+        let sourceHash = try NativeFiles.hash(source)
+        guard meta["history_base"] != nil && !(meta["history_base"] is NSNull) else {
+            return Snapshot(rollout: source, inputs: [source: sourceHash], referenceHome: nil)
+        }
+        try NativeFiles.directory(workspace)
+        let output = workspace.appendingPathComponent(source.lastPathComponent)
+        try NativeFiles.safe(output)
+        guard NativeFiles.fm.createFile(atPath: output.path, contents: nil, attributes: [.posixPermissions: 0o600]) else { throw NativeMigrationError.invalid }
+        let writer = try FileHandle(forWritingTo: output); defer { try? writer.close() }
+        var written = 0, outputOrdinal = 0
+        let paginated = meta["history_mode"] as? String == "paginated"
+        func emit(_ input: Data) throws {
+            var data = input
+            if paginated {
+                guard var row = try JSONSerialization.jsonObject(with: input) as? [String: Any] else { throw NativeMigrationError.invalid }
+                row["ordinal"] = outputOrdinal
+                data = try JSONSerialization.data(withJSONObject: row, options: [.sortedKeys])
+            }
+            outputOrdinal += 1
+            written += data.count + 1
+            guard written <= NativeRolloutReader.maxBytes else { throw NativeMigrationError.invalid }
+            try writer.write(contentsOf: data); try writer.write(contentsOf: Data([10]))
+        }
+        // Provenance remains; only the storage dependency is removed.
+        meta.removeValue(forKey: "history_base")
+        meta.removeValue(forKey: "forked_from_ordinal_exclusive")
+        top["payload"] = meta
+        try emit(JSONSerialization.data(withJSONObject: top, options: [.sortedKeys]))
+        var inputs: [URL: String] = [:], active: Set<URL> = []
+        let reference = workspace.appendingPathComponent("reference")
+        try NativeFiles.directory(reference)
+        func resolve(_ id: String) throws -> URL {
+            guard UUID(uuidString: id) != nil else { throw NativeMigrationError.historyBase }
+            var matches: [URL] = []
+            for folder in ["sessions", "archived_sessions"] {
+                let directory = home.appendingPathComponent(folder)
+                guard NativeFiles.fm.fileExists(atPath: directory.path) else { continue }
+                var failed = false
+                guard let iterator = NativeFiles.fm.enumerator(at: directory, includingPropertiesForKeys: nil, errorHandler: { _,_ in failed = true; return false }) else { throw NativeMigrationError.historyBase }
+                for case let file as URL in iterator {
+                    try NativeFiles.safe(file)
+                    if file.lastPathComponent.hasSuffix("-\(id).jsonl") || file.lastPathComponent.hasSuffix("_\(id).jsonl") { matches.append(file.resolvingSymlinksInPath().standardizedFileURL) }
+                }
+                guard !failed else { throw NativeMigrationError.historyBase }
+            }
+            guard matches.count == 1 else { throw NativeMigrationError.historyBase }
+            return matches[0]
+        }
+        // Ordinals count every physical record, including each generation's
+        // metadata. Byte offsets are local to that generation's file.
+        func append(_ input: URL, cutoff: (bytes: Int, ordinal: Int)?, depth: Int) throws -> Int {
+            let file = input.resolvingSymlinksInPath().standardizedFileURL
+            guard depth < 32, active.insert(file).inserted else { throw NativeMigrationError.historyBase }
+            defer { active.remove(file) }
+            let hash = try NativeFiles.hash(file); inputs[file] = hash
+            let row = try header(file), payload = row["payload"] as! [String: Any]
+            var ordinal = 0
+            if let base = payload["history_base"], !(base is NSNull) {
+                guard let base = base as? [String: Any], let id = base["thread_id"] as? String,
+                      let bytes = base["end_byte_offset"] as? Int, let count = base["end_ordinal_exclusive"] as? Int,
+                      bytes > 0, bytes <= NativeRolloutReader.maxBytes, count > 0, count <= NativeRolloutReader.maxBytes else { throw NativeMigrationError.historyBase }
+                ordinal = try append(resolve(id), cutoff: (bytes, count), depth: depth + 1)
+            }
+            let reader = try NativeRolloutReader(file)
+            var bytes = 0, index = 0
+            while cutoff == nil || bytes < cutoff!.bytes {
+                guard let line = try reader.next() else {
+                    if cutoff != nil { throw NativeMigrationError.historyBase }; break
+                }
+                if payload["history_mode"] as? String == "paginated" {
+                    guard let item = try JSONSerialization.jsonObject(with: line) as? [String: Any], item["ordinal"] as? Int == ordinal else { throw NativeMigrationError.historyBase }
+                }
+                bytes += line.count + 1; ordinal += 1
+                guard cutoff == nil || bytes <= cutoff!.bytes else { throw NativeMigrationError.historyBase }
+                if index > 0 { try emit(line) }
+                index += 1
+            }
+            if let cutoff { guard bytes == cutoff.bytes, ordinal == cutoff.ordinal else { throw NativeMigrationError.historyBase } }
+            guard try NativeFiles.hash(file) == hash else { throw NativeMigrationError.changed }
+            // Retain the exact dependency graph for an independent official
+            // loader comparison before allowing any target write.
+            let filePath = file.resolvingSymlinksInPath().standardizedFileURL.path
+            let homePath = home.resolvingSymlinksInPath().standardizedFileURL.path
+            guard filePath.hasPrefix(homePath + "/") else { throw NativeMigrationError.historyBase }
+            let copy = reference.appendingPathComponent(String(filePath.dropFirst(homePath.count + 1)))
+            try NativeFiles.copy(file, to: copy)
+            guard try NativeFiles.hash(copy) == hash else { throw NativeMigrationError.changed }
+            return ordinal
+        }
+        _ = try append(source, cutoff: nil, depth: 0)
+        try writer.synchronize()
+        let snapshot = Snapshot(rollout: output, inputs: inputs, referenceHome: reference)
+        try snapshot.validate()
+        guard inputs[source.resolvingSymlinksInPath().standardizedFileURL] == sourceHash else { throw NativeMigrationError.changed }
+        return snapshot
+    }
+}

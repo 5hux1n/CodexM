@@ -54,7 +54,10 @@ actor NativeMigrationCoordinator {
               let cwd = meta["cwd"] as? String,
               URL(fileURLWithPath: cwd).resolvingSymlinksInPath().standardizedFileURL == URL(fileURLWithPath: thread.cwd).resolvingSymlinksInPath().standardizedFileURL, let cli = meta["cli_version"] as? String,
               !cli.isEmpty, cli.count < 160 else { throw NativeMigrationError.incompatible }
-        if (meta["forked_from_id"] != nil && !(meta["forked_from_id"] is NSNull)) || (meta["parent_thread_id"] != nil && !(meta["parent_thread_id"] is NSNull)) || meta["source"] is [String: Any] { throw NativeMigrationError.unsupported }
+        if (meta["parent_thread_id"] != nil && !(meta["parent_thread_id"] is NSNull)) || meta["source"] is [String: Any] { throw NativeMigrationError.unsupported }
+        if let fork = meta["forked_from_id"], !(fork is NSNull) {
+            guard let fork = fork as? String, UUID(uuidString: fork) != nil, fork != id else { throw NativeMigrationError.invalid }
+        }
         return try NativeFiles.hash(url)
     }
     private func sourceURL(_ thread: ThreadMetadata, home: URL) throws -> URL {
@@ -89,10 +92,26 @@ actor NativeMigrationCoordinator {
             try preflight("targetSchema") { try NativeFiles.schema(targetHome, threadID: thread.threadID, source: false, allowExisting: true) }
             stage = "initialize"
             let cli = try version(binary, targetHome)
-            let original = try preflight("sourcePath") { try sourceURL(thread, home: sourceHome) }
+            let rawOriginal = try preflight("sourcePath") { try sourceURL(thread, home: sourceHome) }
+            _ = try preflight("sourceHistory") { try Self.inspectRollout(rawOriginal, thread: thread) }
+            let workspace = NativeFiles.fm.temporaryDirectory.appendingPathComponent("CodexM-Portable-\(UUID())").resolvingSymlinksInPath()
+            defer { try? NativeFiles.fm.removeItem(at: workspace) }
+            let portable = try preflight("sourceHistory") { try NativePortableRollout.prepare(rawOriginal, home: sourceHome, workspace: workspace.appendingPathComponent("source")) }
+            let original = portable.rollout
             let originalHash = try preflight("sourceHistory") { try Self.inspectRollout(original, thread: thread) }
             stage = "load"
             let trial = try probe(binary, original, thread.cwd, thread.threadID, originalHash)
+            if let reference = portable.referenceHome {
+                let inherited = try loader(binary, reference, thread.cwd, thread.threadID, true)
+                let restarted = try loader(binary, reference, thread.cwd, thread.threadID, false)
+                guard inherited == restarted, trial.turns >= inherited.turns else { throw NativeMigrationError.historyBase }
+                let suffixHome = workspace.appendingPathComponent("suffix")
+                try NativeFiles.copy(original, to: suffixHome.appendingPathComponent("sessions/codexm-import/" + original.lastPathComponent))
+                let complete = try loader(binary, suffixHome, thread.cwd, thread.threadID, true)
+                let suffix = try NativeHistoryLoader.suffix(binary: binary, home: suffixHome, project: thread.cwd, threadID: thread.threadID, skipping: trial.turns - inherited.turns)
+                guard complete == trial, suffix == inherited else { throw NativeMigrationError.historyBase }
+            }
+            try portable.validate()
             guard try NativeFiles.hash(original) == originalHash else { throw NativeMigrationError.changed }
             stage = "occupancy"
             try NativeFiles.stopped(sourceHome, electron: source.electronHome(in: root))
@@ -118,7 +137,9 @@ actor NativeMigrationCoordinator {
                       URL(fileURLWithPath: rows[0][1]).resolvingSymlinksInPath().standardizedFileURL == targetHome.appendingPathComponent(replacement).resolvingSymlinksInPath().standardizedFileURL else { throw NativeMigrationError.conflict }
                 let targetThread = ThreadMetadata(profileID: target.id, threadID: thread.threadID, title: thread.title, cwd: thread.cwd, rolloutPath: rows[0][1], updatedAt: thread.updatedAt, archived: false)
                 _ = try Self.inspectRollout(targetHome.appendingPathComponent(replacement), thread: targetThread)
-                equal = try NativeRoundTrip.relation(source: original, target: targetHome.appendingPathComponent(replacement), threadID: thread.threadID)
+                let targetPortable = try NativePortableRollout.prepare(targetHome.appendingPathComponent(replacement), home: targetHome, workspace: workspace.appendingPathComponent("target"))
+                equal = try NativeRoundTrip.relation(source: original, target: targetPortable.rollout, threadID: thread.threadID)
+                try targetPortable.validate()
             }
             if let prior, prior.targetProfile != source.id {
                 // Retrying the exact completed transfer is a read-only success.
@@ -142,6 +163,7 @@ actor NativeMigrationCoordinator {
             let package = directory(root, id)
             try NativeFiles.directory(package)
             try NativeFiles.copy(original, to: package.appendingPathComponent("rollout.jsonl"))
+            try portable.validate()
             guard try NativeFiles.hash(original) == originalHash, try NativeFiles.hash(package.appendingPathComponent("rollout.jsonl")) == originalHash else { throw NativeMigrationError.changed }
             let relative = replacement ?? "sessions/codexm-import/\(original.lastPathComponent)"
             var record = NativeMigrationRecord(id: id, createdAt: Date(), sourceProfile: source.id, targetProfile: target.id,
@@ -160,6 +182,7 @@ actor NativeMigrationCoordinator {
             stage = "occupancy"
             try NativeFiles.stopped(sourceHome, electron: source.electronHome(in: root))
             try NativeFiles.stopped(targetHome, electron: target.electronHome(in: root))
+            try portable.validate()
             stage = "import"
             targetMayHaveChanged = true
             record.status = "importing"; try save(record, root: root)
@@ -178,7 +201,8 @@ actor NativeMigrationCoordinator {
                 guard first == second, first == trial else { throw NativeMigrationError.helper }
                 stage = "occupancy"
                 try NativeFiles.stopped(sourceHome, electron: source.electronHome(in: root))
-            try NativeFiles.stopped(targetHome, electron: target.electronHome(in: root))
+                try NativeFiles.stopped(targetHome, electron: target.electronHome(in: root))
+                try portable.validate()
                 guard try NativeFiles.hash(original) == originalHash else { throw NativeMigrationError.changed }
                 stage = "importRollout"
                 record.loadedRolloutHash = try NativeFiles.verifyLoadedRollout(original: package.appendingPathComponent("rollout.jsonl"), loaded: targetHome.appendingPathComponent(relative), threadID: thread.threadID)
@@ -197,7 +221,8 @@ actor NativeMigrationCoordinator {
                     record.importedProjectID = assigned.id
                     record.importedProjectName = assigned.name
                     try NativeFiles.stopped(sourceHome, electron: source.electronHome(in: root))
-            try NativeFiles.stopped(targetHome, electron: target.electronHome(in: root))
+                    try NativeFiles.stopped(targetHome, electron: target.electronHome(in: root))
+                    try portable.validate()
                     guard try NativeFiles.stoppedDatabaseRows(db, "SELECT project_id FROM threads WHERE id=?", bindings: [thread.threadID], diagnosticStage: "project") == [[record.importedProjectID!]],
                           try NativeFiles.stoppedDatabaseRows(db, "PRAGMA integrity_check", diagnosticStage: "project") == [["ok"]] else { throw NativeMigrationDiagnostic(stage: "project", code: "projectVerificationFailed") }
                 }

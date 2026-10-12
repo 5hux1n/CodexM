@@ -170,7 +170,7 @@ rows.update({'native.mode': ('Handoff method', '接力方式'),
                                '当前客户端版本或数据格式尚未验证原生导入兼容性，请使用上下文接力。'),
  'native.error.unsupported': ('This first version supports unarchived standalone tasks only. Tasks with '
                               'child tasks, goals, artifacts or dynamic tools need Context Handoff.',
-                              '第一版支持未归档的独立任务。关联子任务、目标、附件或动态工具的任务请使用上下文接力。'),
+                              '支持未归档任务及通过完整历史核验的分叉会话。关联子任务、目标、附件或动态工具仍需上下文接力。'),
  'native.error.changed': ('Task data changed during the operation. Pause the source task and stop the target '
                           'before retrying.',
                           '操作期间任务数据发生变化，请暂停源任务并停止目标账户后重试。'),
@@ -368,6 +368,10 @@ rows.update({
     'native.error.diverged': ('The histories have diverged or the target has newer work. Both accounts remain unchanged. Continue in the current owner, or use Context Handoff to reconcile the branches manually.', '会话历史已分叉，或目标包含来源没有的新进度。两端保持不变。请在当前接力账户继续，或使用上下文接力人工处理分支。'),
     'native.error.owner': ('This task was already handed to another account. Transfer from its latest receiving account; stale copies cannot overwrite newer history.', '此任务已交给另一个账户继续。请从最近一次接收任务的账户迁移；旧副本不能覆盖新进度。'),
     'native.error.conflict': ('An existing task cannot be linked safely to this transfer. Both histories are preserved. Check migration records or use Context Handoff.', '无法安全核验已有任务与本次接力的关系，已保留两边历史。请检查迁移记录或使用上下文接力。'),
+})
+rows.update({
+    'native.error.historyBase': ('Inherited history is missing, ambiguous, changed, or failed full-history verification. The task cannot be transferred safely; restore its history files or use Context Handoff.', '继承历史缺失、存在多个候选、发生变化或未通过完整历史核验，无法安全迁移。请恢复历史文件，或使用上下文接力。'),
+    'native.error.unsupported': ('This migration supports unarchived tasks, including verified conversation forks. Tasks with linked subtasks, goals, artifacts or dynamic tools require Context Handoff.', '支持未归档任务及通过完整历史核验的分叉会话。包含关联子任务、目标、附件或动态工具的任务仍需使用上下文接力。'),
 })
 rows.update({
     'native.inactiveCopy': ('Older copy · continue in %@', '旧副本 · 当前在 %@ 继续'),

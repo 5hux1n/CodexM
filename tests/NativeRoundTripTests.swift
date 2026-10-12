@@ -30,11 +30,48 @@ enum DiagnosticJournal { static func record(_ failure: AppFailure) {} }
         ]
         let handle = try FileHandle(forWritingTo: file); defer { try? handle.close() }
         try handle.seekToEnd()
-        for record in records { var data = try JSONSerialization.data(withJSONObject: record, options: [.sortedKeys]); data.append(10); try handle.write(contentsOf: data) }
+        let existing = try Data(contentsOf: file).split(separator: 10)
+        let header = try JSONSerialization.jsonObject(with: Data(existing[0])) as! [String: Any]
+        let paginated = (header["payload"] as! [String: Any])["history_mode"] as? String == "paginated"
+        var ordinal = ((try JSONSerialization.jsonObject(with: Data(existing.last!)) as! [String: Any])["ordinal"] as? Int ?? -1) + 1
+        for (index, var record) in records.enumerated() {
+            if paginated {
+                if index == 2 || index == 4 {
+                    record["payload"] = ["type": "item_completed", "thread_id": (header["payload"] as! [String: Any])["id"]!, "turn_id": turn,
+                        "item": ["type": index == 2 ? "UserMessage" : "AgentMessage", "id": UUID().uuidString.lowercased(), "content": [["type": index == 2 ? "text" : "Text", "text": index == 2 ? "Fixture request \(number)" : "Fixture response \(number)", "text_elements": []]], "phase": "final_answer", "client_id": NSNull()], "started_at_ms": 1, "completed_at_ms": 2]
+                }
+                record["ordinal"] = ordinal; ordinal += 1
+            }
+            var data = try JSONSerialization.data(withJSONObject: record, options: [.sortedKeys]); data.append(10); try handle.write(contentsOf: data)
+        }
     }
     static func main() async throws {
         let binary = URL(fileURLWithPath: CommandLine.arguments[1])
         let fm = FileManager.default
+        // Optional read-only diagnostic: only private, credential-free copies
+        // are opened by the official helper. Output contains counts, never text.
+        if CommandLine.arguments.count == 6 {
+            let home = URL(fileURLWithPath: CommandLine.arguments[2])
+            let rollout = URL(fileURLWithPath: CommandLine.arguments[3])
+            let project = CommandLine.arguments[4], threadID = CommandLine.arguments[5]
+            let temporary = fm.temporaryDirectory.appendingPathComponent("CodexM-fork-check-\(UUID())").resolvingSymlinksInPath()
+            defer { try? fm.removeItem(at: temporary) }
+            let selected = ThreadMetadata(profileID: UUID(), threadID: threadID, title: "Private verification", cwd: project, rolloutPath: rollout.path, updatedAt: Date(), archived: false)
+            _ = try NativeMigrationCoordinator.inspectRollout(rollout, thread: selected)
+            let snapshot = try NativePortableRollout.prepare(rollout, home: home, workspace: temporary)
+            _ = try NativeMigrationCoordinator.inspectRollout(snapshot.rollout, thread: selected)
+            guard let reference = snapshot.referenceHome else { fatalError("No inherited history") }
+            let inherited = try NativeHistoryLoader.load(binary: binary, home: reference, project: project, threadID: threadID, hydrate: true)
+            let portable = try NativeHistoryLoader.probe(binary: binary, rollout: snapshot.rollout, project: project, threadID: threadID, expectedHash: NativeFiles.hash(snapshot.rollout))
+            let fullHome = temporary.appendingPathComponent("full")
+            try NativeFiles.copy(snapshot.rollout, to: fullHome.appendingPathComponent("sessions/codexm-import/" + rollout.lastPathComponent))
+            let full = try NativeHistoryLoader.load(binary: binary, home: fullHome, project: project, threadID: threadID, hydrate: true)
+            let suffix = try NativeHistoryLoader.suffix(binary: binary, home: fullHome, project: project, threadID: threadID, skipping: portable.turns - inherited.turns)
+            precondition(full == portable && suffix == inherited)
+            try snapshot.validate()
+            print("PASS: private real-fork comparison: \(portable.turns) turns, \(portable.items) items, \(snapshot.inputs.count) source files unchanged")
+            return
+        }
         let root = fm.temporaryDirectory.appendingPathComponent("CodexM-roundtrip-\(UUID())").resolvingSymlinksInPath()
         try NativeFiles.directory(root)
         // Retain synthetic fixtures on failure for protocol diagnostics.
@@ -118,6 +155,97 @@ enum DiagnosticJournal { static func record(_ failure: AppFailure) {} }
         catch let error as AppFailure { precondition(error.code.hasPrefix("clientLock-pid-")) }
         try fm.removeItem(at: occupied)
         print("PASS: exact relocated history alias, source history regression and running source rejected before writes")
+        // A paginated fork can depend on an unindexed, rotated generation,
+        // which itself inherits only a prefix of an earlier rollout.
+        let d = Profile(id: UUID(), name: "Fork source", createdAt: Date()), e = Profile(id: UUID(), name: "Fork target", createdAt: Date())
+        for profile in [d,e] { try NativeFiles.directory(profile.codexHome(in: root)); try NativeFiles.directory(profile.electronHome(in: root)) }
+        let dh = d.codexHome(in: root), eh = e.codexHome(in: root)
+        let parentID = UUID().uuidString.lowercased(), generationID = UUID().uuidString.lowercased(), forkID = UUID().uuidString.lowercased()
+        func writeMeta(_ payload: [String: Any], to file: URL) throws {
+            try NativeFiles.directory(file.deletingLastPathComponent())
+            var row: [String: Any] = ["timestamp": "2026-10-12T10:00:00.000Z", "type": "session_meta", "payload": payload]
+            if payload["history_mode"] as? String == "paginated" { row["ordinal"] = (payload["history_base"] as? [String: Any])?["end_ordinal_exclusive"] as? Int ?? 0 }
+            var bytes = try JSONSerialization.data(withJSONObject: row, options: [.sortedKeys]); bytes.append(10); try bytes.write(to: file)
+        }
+        var parentMeta = meta["payload"] as! [String: Any]; parentMeta["id"] = parentID; parentMeta["history_mode"] = "paginated"
+        let parentFile = dh.appendingPathComponent("sessions/2026/10/12/rollout-2026-10-12T10-00-00-\(parentID).jsonl")
+        try writeMeta(parentMeta, to: parentFile); try appendTurn(parentFile, number: 1)
+        let parentBytes = try Data(contentsOf: parentFile).count
+        try appendTurn(parentFile, number: 8) // Excluded by the inherited cutoff.
+        var generationMeta = parentMeta
+        generationMeta["history_base"] = ["thread_id": parentID, "end_byte_offset": parentBytes, "end_ordinal_exclusive": 7]
+        let generationFile = dh.appendingPathComponent("sessions/2026/10/12/rollout-2026-10-12T10-00-01-\(parentID)_\(generationID).jsonl")
+        try writeMeta(generationMeta, to: generationFile); try appendTurn(generationFile, number: 2)
+        let generationBytes = try Data(contentsOf: generationFile).count
+        try appendTurn(generationFile, number: 9) // Also excluded.
+        var forkMeta = parentMeta; forkMeta["id"] = forkID; forkMeta["forked_from_id"] = parentID
+        forkMeta["forked_from_ordinal_exclusive"] = 14
+        forkMeta["history_base"] = ["thread_id": generationID, "end_byte_offset": generationBytes, "end_ordinal_exclusive": 14]
+        let forkFile = dh.appendingPathComponent("sessions/2026/10/12/rollout-2026-10-12T10-00-02-\(forkID).jsonl")
+        try writeMeta(forkMeta, to: forkFile); try appendTurn(forkFile, number: 3)
+        func forkThread(_ profile: Profile, _ file: URL) -> ThreadMetadata {
+            ThreadMetadata(profileID: profile.id, threadID: forkID, title: "Fork fixture", cwd: project.path, rolloutPath: file.path, updatedAt: Date(), archived: false)
+        }
+        let forkEvidence = try NativeHistoryLoader.load(binary: binary, home: dh, project: project.path, threadID: forkID, hydrate: true)
+        precondition(forkEvidence.turns > 0 && forkEvidence.turns <= 3)
+        let sourceBefore = try NativeFiles.inventory(dh)
+        let forkImport = try await coordinator.migrate(thread: forkThread(d, forkFile), source: d, target: e, root: root, binary: binary)
+        guard forkImport.status == "verified" else { fatalError("Fork import: \(forkImport.failure?.code ?? forkImport.status)") }
+        precondition(forkImport.evidence?.turns == 3 && forkImport.evidence?.items == 6)
+        let importedFork = eh.appendingPathComponent(forkImport.rolloutRelative)
+        let portableMeta = try JSONSerialization.jsonObject(with: NativeRolloutReader(importedFork).next()!) as! [String: Any]
+        precondition((portableMeta["payload"] as! [String: Any])["history_base"] == nil)
+        let importedInventory = try NativeFiles.inventory(eh)
+        precondition(!importedInventory.keys.contains(where: { $0.contains(parentID) || $0.contains(generationID) }))
+        let forkSourceAfter = try NativeFiles.inventory(dh); precondition(sourceBefore == forkSourceAfter)
+        try appendTurn(importedFork, number: 4)
+        let dependentBeforeReturn = try Data(contentsOf: forkFile)
+        let forkFailure = try await failing.migrate(thread: forkThread(e, importedFork), source: e, target: d, root: root, binary: binary)
+        precondition(forkFailure.status == "failed")
+        _ = try await failing.rollback(id: forkFailure.id, target: d, root: root)
+        let dependentAfterRollback = try Data(contentsOf: forkFile)
+        precondition(dependentAfterRollback == dependentBeforeReturn)
+        let forkReturn = try await coordinator.migrate(thread: forkThread(e, importedFork), source: e, target: d, root: root, binary: binary)
+        guard forkReturn.status == "verified" else { fatalError("Fork return: \(forkReturn.failure?.code ?? forkReturn.status)") }
+        precondition(forkReturn.evidence?.turns == 4)
+        let forkRestart = try NativeHistoryLoader.load(binary: binary, home: dh, project: project.path, threadID: forkID, hydrate: false)
+        precondition(forkRestart == forkReturn.evidence)
+        print("PASS: nested paginated fork, unindexed rotated base, exact cutoffs exclude later parent turns, official full-history reconstruction and local suffix verification, source unchanged, failed return rollback, return and restart preserve four turns")
+        let bad = root.appendingPathComponent("bad-fork.jsonl")
+        var brokenMeta = forkMeta; brokenMeta["history_base"] = ["thread_id": generationID, "end_byte_offset": generationBytes - 1, "end_ordinal_exclusive": 14]
+        try writeMeta(brokenMeta, to: bad); try appendTurn(bad, number: 3)
+        do { _ = try NativePortableRollout.prepare(bad, home: dh, workspace: root.appendingPathComponent("bad-output")); fatalError("Accepted partial base record") }
+        catch NativeMigrationError.historyBase {}
+        brokenMeta["history_base"] = ["thread_id": UUID().uuidString.lowercased(), "end_byte_offset": generationBytes, "end_ordinal_exclusive": 14]
+        try writeMeta(brokenMeta, to: bad); try appendTurn(bad, number: 3)
+        do { _ = try NativePortableRollout.prepare(bad, home: dh, workspace: root.appendingPathComponent("missing-output")); fatalError("Accepted missing base") }
+        catch NativeMigrationError.historyBase {}
+        brokenMeta["history_base"] = ["thread_id": generationID, "end_byte_offset": generationBytes, "end_ordinal_exclusive": Int.max]
+        try writeMeta(brokenMeta, to: bad)
+        do { _ = try NativePortableRollout.prepare(bad, home: dh, workspace: root.appendingPathComponent("overflow-output")); fatalError("Accepted overflowing ordinal") }
+        catch NativeMigrationError.historyBase {}
+        try writeMeta(forkMeta, to: bad); try appendTurn(bad, number: 3)
+        let duplicate = dh.appendingPathComponent("sessions/duplicate/" + generationFile.lastPathComponent)
+        try NativeFiles.copy(generationFile, to: duplicate)
+        do { _ = try NativePortableRollout.prepare(bad, home: dh, workspace: root.appendingPathComponent("duplicate-output")); fatalError("Accepted ambiguous generation") }
+        catch NativeMigrationError.historyBase {}
+        try fm.removeItem(at: duplicate)
+        let savedGeneration = try Data(contentsOf: generationFile)
+        var cyclic = generationMeta; cyclic["history_base"] = ["thread_id": generationID, "end_byte_offset": generationBytes, "end_ordinal_exclusive": 14]
+        try writeMeta(cyclic, to: generationFile); try appendTurn(generationFile, number: 2)
+        do { _ = try NativePortableRollout.prepare(bad, home: dh, workspace: root.appendingPathComponent("cycle-output")); fatalError("Accepted cyclic inheritance") }
+        catch NativeMigrationError.historyBase {}
+        try savedGeneration.write(to: generationFile)
+        let stableFork = try Data(contentsOf: forkFile)
+        brokenMeta["history_base"] = ["thread_id": UUID().uuidString.lowercased(), "end_byte_offset": generationBytes, "end_ordinal_exclusive": 14]
+        try writeMeta(brokenMeta, to: forkFile); try appendTurn(forkFile, number: 3)
+        let negativeBeforeSource = try NativeFiles.inventory(dh), negativeBeforeTarget = try NativeFiles.inventory(eh)
+        do { _ = try await coordinator.migrate(thread: forkThread(d, forkFile), source: d, target: e, root: root, binary: binary); fatalError("Imported missing inherited history") }
+        catch let error as AppFailure { precondition(error.code == "historyBase") }
+        let negativeAfterSource = try NativeFiles.inventory(dh), negativeAfterTarget = try NativeFiles.inventory(eh)
+        precondition(negativeAfterSource == negativeBeforeSource && negativeAfterTarget == negativeBeforeTarget)
+        try stableFork.write(to: forkFile)
+        print("PASS: missing dependency, ambiguous generation, cyclic inheritance, overflowing ordinal and partial-record cutoff rejected; failed preflight leaves both accounts unchanged")
         let long = root.appendingPathComponent("rollout-long.jsonl"), longCopy = root.appendingPathComponent("rollout-long-copy.jsonl")
         try data.write(to: long)
         let longHandle = try FileHandle(forWritingTo: long); try longHandle.seekToEnd()
