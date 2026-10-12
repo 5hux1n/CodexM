@@ -3101,13 +3101,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The target already contains this task. It will not be overwritten."
+            "value": "An existing task cannot be linked safely to this transfer. Both histories are preserved. Check migration records or use Context Handoff."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "目标账户已存在此任务，不会覆盖。"
+            "value": "无法安全核验已有任务与本次接力的关系，已保留两边历史。请检查迁移记录或使用上下文接力。"
           }
         }
       }
@@ -3125,6 +3125,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "历史处理在“%@”阶段失败（代码：%@）。请保留诊断信息和已有迁移备份。"
+          }
+        }
+      }
+    },
+    "native.error.diverged": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The histories have diverged or the target has newer work. Both accounts remain unchanged. Continue in the current owner, or use Context Handoff to reconcile the branches manually."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "会话历史已分叉，或目标包含来源没有的新进度。两端保持不变。请在当前接力账户继续，或使用上下文接力人工处理分支。"
           }
         }
       }
@@ -3176,6 +3193,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "迁移校验未通过。请根据报错阶段区分路径、历史、校验和或磁盘空间检查，并保留原数据。"
+          }
+        }
+      }
+    },
+    "native.error.owner": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This task was already handed to another account. Transfer from its latest receiving account; stale copies cannot overwrite newer history."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "此任务已交给另一个账户继续。请从最近一次接收任务的账户迁移；旧副本不能覆盖新进度。"
           }
         }
       }
@@ -3271,13 +3305,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Import and Open Target"
+            "value": "Transfer and Open Target"
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "导入并打开目标账户"
+            "value": "接力迁移并打开目标"
           }
         }
       }
@@ -3299,19 +3333,36 @@
         }
       }
     },
+    "native.inactiveCopy": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Older copy · continue in %@"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "旧副本 · 当前在 %@ 继续"
+          }
+        }
+      }
+    },
     "native.intro": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Copy the original task and its unredacted history, preserving its ID. The source stays unchanged. Account credentials are excluded. Import uses the official local history loader; continuing with another account still needs verification. Unsupported tasks can use Context Handoff."
+            "value": "Transfer full history with one active account at a time. Stop both accounts before importing. Returning to an existing task updates it only when its old history is a prefix of the current owner’s history. Divergent branches remain untouched. Shared project files stay in place; credentials are excluded."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "复制原任务及未经脱敏的完整历史，保留任务 ID，源任务保持不变；不复制登录凭据。由官方本地程序加载历史，跨账户继续执行仍需验证。不支持的任务可切换为上下文接力。"
+            "value": "完整历史在账户间单端接力，迁移前需停止两端账户。回到已有任务时，只有旧历史是当前接力账户最新历史的前缀才会备份后更新；分叉保留双方、不覆盖。共用项目文件保持原位，不复制登录凭据。"
           }
         }
       }
@@ -3503,6 +3554,23 @@
         }
       }
     },
+    "native.returnResult": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Updated the existing task after common-history verification; its earlier version is backed up."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已核验共同历史并更新已有对话；更新前的版本已备份。"
+          }
+        }
+      }
+    },
     "native.rollback": {
       "extractionState": "manual",
       "localizations": {
@@ -3533,6 +3601,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "备份用于在导入失败时恢复目标账户原有的任务数据，源任务仍然保留。回滚要求目标账户已停止，且任务数据自导入后没有变化。目标产生新数据后会阻止回滚，避免丢失新工作；不会恢复或覆盖登录凭据。"
+          }
+        }
+      }
+    },
+    "native.sourceRunning": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stop the source account before transferring."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "迁移前需要停止来源账户。"
           }
         }
       }
@@ -4196,6 +4281,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "本地历史已导入并验证"
+          }
+        }
+      }
+    },
+    "native.stopSource": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stop Source Account"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "停止来源账户"
           }
         }
       }

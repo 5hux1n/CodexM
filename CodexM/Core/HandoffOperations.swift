@@ -22,7 +22,7 @@ extension AppModel {
         metadataMutation = true; busyProfiles.insert(target.id); handoffWorking = true
         defer { metadataMutation = false; busyProfiles.remove(target.id); handoffWorking = false }
         await refreshProcesses()
-        guard instances[target.id] == nil, !blockedProfiles.contains(target.id) else { throw NativeMigrationError.busy }
+        guard instances[source.id] == nil, instances[target.id] == nil, !blockedProfiles.contains(source.id), !blockedProfiles.contains(target.id) else { throw NativeMigrationError.busy }
         try await store.prepare(target)
         try await store.assertNotLocked(target)
         return try await nativeMigration.migrate(thread: thread, source: source, target: target, root: dataRoot,

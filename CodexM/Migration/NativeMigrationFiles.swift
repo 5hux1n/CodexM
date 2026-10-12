@@ -78,11 +78,18 @@ enum NativeFiles {
         try safe(original); try safe(loaded)
         let originalSize = try original.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0
         let loadedSize = try loaded.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0
-        guard originalSize > 0, originalSize <= 128 * 1024 * 1024, loadedSize >= originalSize,
+        guard originalSize > 0, originalSize <= NativeRolloutReader.maxBytes, loadedSize >= originalSize,
               loadedSize <= originalSize + 2 * 1024 * 1024 else { throw NativeMigrationError.changed }
-        let before = try Data(contentsOf: original), after = try Data(contentsOf: loaded)
-        guard after.starts(with: before) else { throw NativeMigrationError.changed }
-        let extra = after.dropFirst(before.count)
+        let left = try FileHandle(forReadingFrom: original), right = try FileHandle(forReadingFrom: loaded)
+        defer { try? left.close(); try? right.close() }
+        var remaining = originalSize
+        while remaining > 0 {
+            let count = min(remaining, 65536)
+            guard let before = try left.read(upToCount: count), let after = try right.read(upToCount: count),
+                  before.count == count, before == after else { throw NativeMigrationError.changed }
+            remaining -= count
+        }
+        let extra = try right.readToEnd() ?? Data()
         if !extra.isEmpty {
             guard extra.last == 10 else { throw NativeMigrationError.changed }
             let lines = extra.split(separator: 10)
@@ -172,10 +179,9 @@ enum NativeFiles {
             })
         }
     }
-    static func schema(_ home: URL, threadID: String, source: Bool) throws {
+    static func schema(_ home: URL, threadID: String, source: Bool, allowExisting: Bool = false) throws {
         let stage = source ? "sourceSchema" : "targetSchema"
         func readRows(_ url: URL, _ sql: String, bindings: [String] = []) throws -> [[String]] {
-            if source { return try rows(url, sql, bindings: bindings, diagnosticStage: stage) }
             return try stoppedDatabaseRows(url, sql, bindings: bindings, diagnosticStage: stage)
         }
         let db = home.appendingPathComponent("state_5.sqlite")
@@ -186,7 +192,8 @@ enum NativeFiles {
         let columns = try readRows(db, "PRAGMA table_info(threads)").map { $0[1] }
         guard Set(["id", "rollout_path", "cwd"]).isSubset(of: Set(columns)) else { throw NativeMigrationDiagnostic(stage: stage, code: "missingThreadColumns") }
         let existing = try readRows(db, "SELECT id FROM threads WHERE id=?", bindings: [threadID])
-        if !source { guard existing.isEmpty else { throw NativeMigrationError.conflict }; return }
+        if !source && existing.isEmpty { return }
+        if !source && !allowExisting { throw NativeMigrationError.conflict }
         guard existing.count == 1 else { throw NativeMigrationError.invalid }
         let tables = Set(try readRows(db, "SELECT name FROM sqlite_master WHERE type='table'").map { $0[0] })
         for table in ["thread_spawn_edges", "thread_artifacts", "thread_dynamic_tools"] where tables.contains(table) {

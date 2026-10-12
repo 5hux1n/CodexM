@@ -96,10 +96,10 @@ final class NativeChild {
 enum NativeHistoryLoader {
     static func sourceProject(home: URL, threadID: String, cwd: String) throws -> NativeProject? {
         let db = home.appendingPathComponent("state_5.sqlite")
-        let columns = try NativeFiles.rows(db, "PRAGMA table_info(threads)").map { $0[1] }
-        if columns.contains("project_id"), let id = try NativeFiles.rows(db, "SELECT project_id FROM threads WHERE id=?", bindings: [threadID]).first?.first, !id.isEmpty {
-            let names = try NativeFiles.rows(db, "SELECT name FROM projects WHERE id=?", bindings: [id])
-            let roots = try NativeFiles.rows(db, "SELECT path FROM project_roots WHERE project_id=? ORDER BY position", bindings: [id]).map { $0[0] }
+        let columns = try NativeFiles.stoppedDatabaseRows(db, "PRAGMA table_info(threads)", diagnosticStage: "project").map { $0[1] }
+        if columns.contains("project_id"), let id = try NativeFiles.stoppedDatabaseRows(db, "SELECT project_id FROM threads WHERE id=?", bindings: [threadID], diagnosticStage: "project").first?.first, !id.isEmpty {
+            let names = try NativeFiles.stoppedDatabaseRows(db, "SELECT name FROM projects WHERE id=?", bindings: [id], diagnosticStage: "project")
+            let roots = try NativeFiles.stoppedDatabaseRows(db, "SELECT path FROM project_roots WHERE project_id=? ORDER BY position", bindings: [id], diagnosticStage: "project").map { $0[0] }
             guard let name = names.first?.first, !roots.isEmpty else { throw NativeMigrationDiagnostic(stage: "project", code: "missingSourceProject") }
             return NativeProject(name: name, roots: roots)
         }

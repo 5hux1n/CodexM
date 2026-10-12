@@ -1,7 +1,7 @@
 import Foundation
 
 enum NativeMigrationError: String, Error, LocalizedError {
-    case runtime, capability, busy, conflict, incompatible, unsupported, changed, invalid, helper, rollbackChanged, recovery
+    case runtime, capability, busy, conflict, incompatible, unsupported, changed, invalid, helper, rollbackChanged, recovery, diverged, owner
     var errorDescription: String? { L10n.text("native.error.\(rawValue)") }
 }
 
@@ -50,5 +50,8 @@ struct NativeMigrationRecord: Codable, Identifiable, Sendable {
     var loadedRolloutHash: String?
     var failure: AppFailure?
     var failureCode: String?
+    var transferKind: String?
+    var previousTransferID: UUID?
+    var replacedRolloutHash: String?
     var containsCredentials = false
 }

@@ -155,6 +155,9 @@ enum RolloutSource {
         guard roots.contains(where: { local.path.hasPrefix($0) }) else { throw CodexMError.unsafePath }
         try validate(local)
         guard FileManager.default.fileExists(atPath: raw.path) else { return local }
+        // A compatibility link may restore the exact old path after relocation.
+        // Accept only a link that resolves to this already-validated local file.
+        if raw.resolvingSymlinksInPath().standardizedFileURL == local.resolvingSymlinksInPath().standardizedFileURL { return local }
         try validate(raw)
         // No fallback to an unrelated absolute path when the account copy is missing.
         let localInfo = try local.resourceValues(forKeys: [.isRegularFileKey, .fileSizeKey])

@@ -361,6 +361,19 @@ rows.update({
 rows.update({'handoff.updatedAt': ('Updated %@', '更新于 %@')})
 rows.update({'native.stage.project': ('Restoring project membership', '恢复项目归属'), 'native.importedProject': ('Imported into project: %@', '已归入项目：%@')})
 rows.update({'settings.directoryPreparing': ('Preparing account data…', '正在准备账户数据…'), 'settings.directoryCopying': ('Copying account data…', '正在复制账户数据…')})
+rows.update({
+    'native.intro': ('Transfer full history with one active account at a time. Stop both accounts before importing. Returning to an existing task updates it only when its old history is a prefix of the current owner’s history. Divergent branches remain untouched. Shared project files stay in place; credentials are excluded.', '完整历史在账户间单端接力，迁移前需停止两端账户。回到已有任务时，只有旧历史是当前接力账户最新历史的前缀才会备份后更新；分叉保留双方、不覆盖。共用项目文件保持原位，不复制登录凭据。'),
+    'native.sourceRunning': ('Stop the source account before transferring.', '迁移前需要停止来源账户。'),
+    'native.stopSource': ('Stop Source Account', '停止来源账户'),
+    'native.error.diverged': ('The histories have diverged or the target has newer work. Both accounts remain unchanged. Continue in the current owner, or use Context Handoff to reconcile the branches manually.', '会话历史已分叉，或目标包含来源没有的新进度。两端保持不变。请在当前接力账户继续，或使用上下文接力人工处理分支。'),
+    'native.error.owner': ('This task was already handed to another account. Transfer from its latest receiving account; stale copies cannot overwrite newer history.', '此任务已交给另一个账户继续。请从最近一次接收任务的账户迁移；旧副本不能覆盖新进度。'),
+    'native.error.conflict': ('An existing task cannot be linked safely to this transfer. Both histories are preserved. Check migration records or use Context Handoff.', '无法安全核验已有任务与本次接力的关系，已保留两边历史。请检查迁移记录或使用上下文接力。'),
+})
+rows.update({
+    'native.inactiveCopy': ('Older copy · continue in %@', '旧副本 · 当前在 %@ 继续'),
+    'native.returnResult': ('Updated the existing task after common-history verification; its earlier version is backed up.', '已核验共同历史并更新已有对话；更新前的版本已备份。'),
+    'native.import': ('Transfer and Open Target', '接力迁移并打开目标'),
+})
 output = {"sourceLanguage": "en", "strings": {key: {"extractionState": "manual", "localizations": {lang: {"stringUnit": {"state": "translated", "value": value}} for lang, value in zip(['en','zh-Hans'], pair)}} for key, pair in sorted(rows.items())}, "version": "1.0"}
 path = Path(__file__).resolve().parents[1] / 'CodexM/Resources/Localizable.xcstrings'
 path.write_text(json.dumps(output, ensure_ascii=False, indent=2) + '\n')

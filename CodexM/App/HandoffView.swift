@@ -50,7 +50,7 @@ struct HandoffView: View {
                 Button(model.text("action.close")) { task?.cancel(); close() }.keyboardShortcut(.cancelAction).disabled(working)
                 if nativeMode, nativeRecord == nil, package == nil {
                     Button(model.text("native.import")) { importNative() }.buttonStyle(.borderedProminent)
-                        .disabled(loading || working || !sourcePaused || source == nil || target == nil || thread == nil || sourceID == targetID || model.relocatingAccounts || target.map { model.state($0).isActive } == true)
+                        .disabled(loading || working || !sourcePaused || source == nil || target == nil || thread == nil || sourceID == targetID || model.relocatingAccounts || target.map { model.state($0).isActive } == true || source.map { model.state($0).isActive } == true)
                 } else if let draft, package == nil {
                     Button(model.text("handoff.execute")) { commit(draft) }.buttonStyle(.borderedProminent).disabled(working || context.isEmpty)
                 } else if package == nil && nativeRecord == nil {
@@ -115,6 +115,10 @@ struct HandoffView: View {
                     HStack {
                         Text(thread.title.isEmpty ? model.text("window.untitled") : thread.title).lineLimit(1)
                         if thread.archived { Text(model.text("handoff.archived")).font(.caption).foregroundStyle(.secondary) }
+                        if nativeMode, let owner = nativeHistory.first(where: { $0.threadID == thread.threadID && $0.status == "verified" })?.targetProfile,
+                           owner != thread.profileID, let account = model.profiles.first(where: { $0.id == owner }) {
+                            Text(model.text("native.inactiveCopy", account.name)).font(.caption).foregroundStyle(.secondary)
+                        }
                         Spacer()
                         Text(String(format: model.text("handoff.updatedAt"), thread.updatedAt.formatted(date: .abbreviated, time: .shortened)))
                             .font(.caption).foregroundStyle(.secondary)
@@ -125,6 +129,12 @@ struct HandoffView: View {
                 .frame(minHeight: 170)
             if nativeMode {
                 Toggle(model.text("native.paused"), isOn: $sourcePaused)
+                if let source, model.state(source).isActive {
+                    HStack {
+                        Text(model.text("native.sourceRunning")).font(.caption)
+                        Button(model.text("native.stopSource")) { Task { await model.stop(source) } }
+                    }
+                }
                 if let target, model.state(target).isActive {
                     HStack {
                         Text(model.text("native.targetRunning")).font(.caption)
@@ -278,6 +288,7 @@ struct HandoffView: View {
         VStack(alignment: .leading, spacing: 14) {
             Label(model.text("native.status.\(record.status)"), systemImage: record.status == "verified" ? "checkmark.circle" : "info.circle").font(.headline)
             Text(record.title).font(.headline)
+            if record.transferKind == "return" { Text(model.text("native.returnResult")).font(.caption).foregroundStyle(.secondary) }
             Text(record.project).font(.caption).textSelection(.enabled)
             if let name = record.importedProjectName { Text(model.text("native.importedProject", name)).font(.caption) }
             Text(model.text("native.threadID", record.threadID)).font(.caption).textSelection(.enabled)
