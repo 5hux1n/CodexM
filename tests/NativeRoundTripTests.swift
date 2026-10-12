@@ -2,7 +2,7 @@ import Foundation
 
 // Small adapters isolate the real storage, coordinator and official loader
 // from UI/localization. No loader or projection behavior is mocked.
-enum CodexMError: String, Error { case unsafePath, handoffTranscript, handoffProject, corruptStorage, defaultAccountProtected, directoryNotEmpty, filesystemError, profileBusy, storageLocked, invalidName }
+enum CodexMError: String, Error { case unsafePath, handoffTranscript, handoffProject, corruptStorage, defaultAccountProtected, directoryNotEmpty, filesystemError, profileBusy, storageLocked, invalidName, handoffNoDatabase, handoffSchema }
 enum L10n { static func text(_ key: String) -> String { key } }
 struct AppFailure: Error, LocalizedError, Codable, Sendable {
     var code: String
@@ -92,9 +92,61 @@ enum DiagnosticJournal { static func record(_ failure: AppFailure) {} }
         try fm.createSymbolicLink(at: legacyPath, withDestinationURL: original)
         let resolved = try RolloutSource.resolve(thread: thread(a, file: legacyPath), home: a.codexHome(in: root))
         precondition(resolved.resolvingSymlinksInPath() == original.resolvingSymlinksInPath())
+        let sourceProjectID = UUID().uuidString
+        let sidebarSource: [String: Any] = ["local-projects": [sourceProjectID: ["id": sourceProjectID, "name": "Fixture Project", "rootPaths": [project.path]]],
+            "thread-project-assignments": [tid: ["projectKind": "local", "projectId": sourceProjectID]], "electron-mac-push-deregistration-token": "private-source-sentinel"]
+        try JSONSerialization.data(withJSONObject: sidebarSource).write(to: a.codexHome(in: root).appendingPathComponent(".codex-global-state.json"))
+        let unrelatedProjectID = UUID().uuidString
+        let targetSidebar: [String: Any] = ["local-projects": [unrelatedProjectID: ["id": unrelatedProjectID, "name": "Unrelated project", "rootPaths": [root.appendingPathComponent("unrelated").path]]],
+            "project-order": [unrelatedProjectID], "selected-project": ["type": "local", "projectId": unrelatedProjectID], "electron-mac-push-deregistration-token": "private-target-sentinel"]
+        let targetState = b.codexHome(in: root).appendingPathComponent(".codex-global-state.json")
+        try JSONSerialization.data(withJSONObject: targetSidebar).write(to: targetState)
         let coordinator = NativeMigrationCoordinator()
         let first = try await coordinator.migrate(thread: thread(a, file: original), source: a, target: b, root: root, binary: binary)
         guard first.status == "verified" else { fatalError("Initial import: \(first.failure?.code ?? first.failureCode ?? first.status)") }
+        precondition(first.importedProjectName == "Fixture Project" && first.desktopStateBefore != nil)
+        let displayName = try NativeHistoryLoader.hasDisplayName(binary: binary, home: b.codexHome(in: root), threadID: tid, name: "Fixture")
+        let projectVisible = try NativeDesktopState.visible(home: b.codexHome(in: root), threadID: tid, project: NativeProject(name: "Fixture Project", roots: [project.path]))
+        precondition(displayName && projectVisible)
+        let listed = try await ThreadStore().readThreads(profile: b, root: root)
+        precondition(listed.first(where: { $0.threadID == tid })?.title == "Fixture")
+        let registeredState = try JSONSerialization.jsonObject(with: Data(contentsOf: targetState)) as! [String: Any]
+        precondition(registeredState["electron-mac-push-deregistration-token"] as? String == "private-target-sentinel")
+        precondition((registeredState["selected-project"] as! [String: Any])["projectId"] as? String == unrelatedProjectID)
+        precondition((registeredState["local-projects"] as! [String: Any])[unrelatedProjectID] != nil)
+        let displayBackup = try NativeDesktopState.validateSnapshot(first.desktopStateBefore!)
+        precondition(displayBackup["electron-mac-push-deregistration-token"] == nil)
+        precondition(!String(decoding: first.desktopStateBefore!, as: UTF8.self).contains("private-target-sentinel"))
+        let encoded = try JSONEncoder().encode(first)
+        precondition(!String(decoding: encoded, as: UTF8.self).contains("private-target-sentinel") && !String(decoding: encoded, as: UTF8.self).contains("private-source-sentinel"))
+        try NativeHistoryLoader.setName(binary: binary, home: b.codexHome(in: root), threadID: tid, name: "User renamed task")
+        let renamedRetry = try await coordinator.migrate(thread: thread(a, file: original), source: a, target: b, root: root, binary: binary)
+        precondition(renamedRetry.id == first.id)
+        let keptName = try NativeHistoryLoader.displayName(binary: binary, home: b.codexHome(in: root), threadID: tid)
+        precondition(keptName == "User renamed task")
+        try NativeHistoryLoader.setName(binary: binary, home: b.codexHome(in: root), threadID: tid, name: "Fixture")
+        // A legacy successful import can be retried to repair its missing
+        // sidebar registration, with a fresh backup and the same task identity.
+        try JSONSerialization.data(withJSONObject: targetSidebar).write(to: targetState)
+        let visibilityRepair = try await coordinator.migrate(thread: thread(a, file: original), source: a, target: b, root: root, binary: binary)
+        precondition(visibilityRepair.status == "verified" && visibilityRepair.id != first.id)
+        let repairedVisible = try NativeDesktopState.visible(home: b.codexHome(in: root), threadID: tid, project: NativeProject(name: "Fixture Project", roots: [project.path]))
+        precondition(repairedVisible)
+        let repairedSidebar = try Data(contentsOf: targetState)
+        // Sidebar edits after import must prevent rollback; restore only the
+        // synthetic edit before testing full storage + sidebar rollback.
+        var editedSidebar = try JSONSerialization.jsonObject(with: Data(contentsOf: targetState)) as! [String: Any]
+        editedSidebar["project-order"] = ["synthetic-user-edit"]
+        try JSONSerialization.data(withJSONObject: editedSidebar).write(to: targetState)
+        do { _ = try await coordinator.rollback(id: visibilityRepair.id, target: b, root: root); fatalError("Overwrote changed sidebar") }
+        catch NativeMigrationError.rollbackChanged {}
+        try repairedSidebar.write(to: targetState)
+        // Generated IDs are stable because registration reuses the server ID.
+        _ = try await coordinator.rollback(id: visibilityRepair.id, target: b, root: root)
+        let restoredSidebar = try NativeDesktopState.snapshot(b.codexHome(in: root))
+        precondition(restoredSidebar == visibilityRepair.desktopStateBefore)
+        _ = try await coordinator.migrate(thread: thread(a, file: original), source: a, target: b, root: root, binary: binary)
+        print("PASS: display name, sidebar project and membership, user rename and unrelated preferences retained, no auth values in backup, legacy import display repair and guarded sidebar rollback")
         let received = b.codexHome(in: root).appendingPathComponent(first.rolloutRelative)
         try appendTurn(received, number: 2)
         let two = try NativeHistoryLoader.load(binary: binary, home: b.codexHome(in: root), project: project.path, threadID: tid, hydrate: true)

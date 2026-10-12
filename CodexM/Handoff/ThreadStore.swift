@@ -7,7 +7,7 @@ actor ThreadStore {
         let home = profile.codexHome(in: root).standardizedFileURL
         let url = home.appendingPathComponent("state_5.sqlite")
         guard FileManager.default.fileExists(atPath: url.path) else { throw CodexMError.handoffNoDatabase }
-        guard url.resolvingSymlinksInPath().path == url.path else { throw CodexMError.unsafePath }
+        try NativeFiles.safe(url)
         var db: OpaquePointer?
         let opened = sqlite3_open_v2(url.path, &db, SQLITE_OPEN_READONLY | SQLITE_OPEN_NOMUTEX, nil)
         guard opened == SQLITE_OK, let db else {
@@ -22,11 +22,26 @@ actor ThreadStore {
         let archived = columns.contains("archived") ? "archived" : "0"
         let name = columns.contains("name") ? "name" : "NULL"
         let values = try rows(db, "SELECT id, title, cwd, rollout_path, updated_at, \(archived), \(name) FROM threads ORDER BY updated_at DESC LIMIT 500")
+        // Name updates may be persisted in the index before the SQLite
+        // projection is backfilled. Prefer the latest index name when listing an account.
+        var indexNames: [String: String] = [:]
+        let selectedIDs = Set(values.map { $0[0] })
+        let index = home.appendingPathComponent("session_index.jsonl")
+        if FileManager.default.fileExists(atPath: index.path), let reader = try? NativeRolloutReader(index) {
+            while let line = try? reader.next() {
+                guard let item = try? JSONSerialization.jsonObject(with: line) as? [String: Any],
+                      let id = item["id"] as? String, selectedIDs.contains(id), let name = item["thread_name"] as? String,
+                      name.utf8.count <= 16_384 else { continue }
+                indexNames[id] = name.trimmingCharacters(in: .whitespacesAndNewlines)
+            }
+        }
         return values.compactMap { row in
             guard row.count == 7, !row[0].isEmpty, row[2].hasPrefix("/"), !row[3].isEmpty else { return nil }
             let time = Double(row[4]) ?? 0
             let name = row[6].trimmingCharacters(in: .whitespacesAndNewlines)
-            let title = name.isEmpty ? row[1] : name
+            let title: String
+            if let indexed = indexNames[row[0]] { title = indexed.isEmpty ? row[1] : indexed }
+            else { title = name.isEmpty ? row[1] : name }
             return ThreadMetadata(profileID: profile.id, threadID: row[0], title: SecretRedactor.clean(title).text,
                 cwd: row[2], rolloutPath: row[3], updatedAt: Date(timeIntervalSince1970: time > 10_000_000_000 ? time / 1000 : time), archived: row[5] == "1")
         }

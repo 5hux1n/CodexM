@@ -10,9 +10,9 @@
 
 为不同账户保留独立登录状态，从菜单栏切换窗口，并通过项目接力继续已有任务。
 
-**当前版本：1.1.1 · macOS 14+ · Apple Silicon / Intel**
+**当前版本：1.1.2 · macOS 14+ · Apple Silicon / Intel**
 
-修复分叉会话迁移：按分叉位置合并继承历史，经官方程序核验后迁移完整对话。支持 A → B → A 往返接力；双端各自新增的冲突历史保留双方，拒绝覆盖。迁移前需要停止两端账户。
+修复“导入成功但找不到会话”：保留原会话名称，同时登记目标客户端项目栏和会话归属。旧导入可在停止两端账户后重复迁移来修复显示。支持分叉会话完整历史与 A → B → A 往返接力；冲突历史保留双方。
 
 CodexM 是独立开发的开源工具，与 OpenAI 无隶属或背书关系，不包含官方客户端。
 
@@ -32,7 +32,7 @@ export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
 open dist/CodexM.app
 ```
 
-如果 Xcode 安装在其他位置，请修改 `DEVELOPER_DIR`。构建会生成 `dist/CodexM.app`、`dist/CodexM-v1.1.1-macOS.dmg` 和 ZIP 压缩包。将应用放到固定位置后使用。
+如果 Xcode 安装在其他位置，请修改 `DEVELOPER_DIR`。构建会生成 `dist/CodexM.app`、`dist/CodexM-v1.1.2-macOS.dmg` 和 ZIP 压缩包。将应用放到固定位置后使用。
 
 当前发布包及本地构建采用 ad-hoc 签名，未经 Developer ID 签名或 Apple 公证。替换应用后，macOS 可能要求重新授予辅助功能权限。
 

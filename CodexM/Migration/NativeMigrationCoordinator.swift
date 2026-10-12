@@ -33,6 +33,8 @@ actor NativeMigrationCoordinator {
         guard record.formatVersion == 1, record.id == id, !record.containsCredentials,
               NativeFiles.included(record.rolloutRelative), record.rolloutRelative.hasPrefix("sessions/"),
               record.before.keys.allSatisfy(NativeFiles.included), record.after.keys.allSatisfy(NativeFiles.included) else { throw NativeMigrationError.invalid }
+        if let data = record.desktopStateBefore { _ = try NativeDesktopState.validateSnapshot(data) }
+        if record.desktopStateAfterHash != nil && record.desktopStateBefore == nil { throw NativeMigrationError.invalid }
         return record
     }
     static func inspectRollout(_ url: URL, thread: ThreadMetadata) throws -> String {
@@ -141,10 +143,18 @@ actor NativeMigrationCoordinator {
                 equal = try NativeRoundTrip.relation(source: original, target: targetPortable.rollout, threadID: thread.threadID)
                 try targetPortable.validate()
             }
+            var desiredName = thread.title
             if let prior, prior.targetProfile != source.id {
-                // Retrying the exact completed transfer is a read-only success.
-                if equal, prior.sourceProfile == source.id, prior.targetProfile == target.id { return prior }
-                throw NativeMigrationError.owner
+                // A complete retry stays read-only and preserves user renames.
+                if equal, prior.sourceProfile == source.id, prior.targetProfile == target.id {
+                    let existingName = try NativeHistoryLoader.persistedDisplayName(home: targetHome, threadID: thread.threadID)
+                    let named = existingName != nil || thread.title.isEmpty
+                    if let existingName { desiredName = existingName }
+                    let visible = try sourceProject.map { try NativeDesktopState.visible(home: targetHome, threadID: thread.threadID, project: $0) } ?? true
+                    if named && visible { return prior }
+                    // An exact completed transfer may repair missing display
+                    // metadata after a full backup, without taking newer history.
+                } else { throw NativeMigrationError.owner }
             }
             if replacement != nil && prior == nil { throw NativeMigrationError.conflict }
             let projectionTables = replacement == nil ? [] : try NativeRoundTrip.projectionTables(home: targetHome)
@@ -167,11 +177,12 @@ actor NativeMigrationCoordinator {
             guard try NativeFiles.hash(original) == originalHash, try NativeFiles.hash(package.appendingPathComponent("rollout.jsonl")) == originalHash else { throw NativeMigrationError.changed }
             let relative = replacement ?? "sessions/codexm-import/\(original.lastPathComponent)"
             var record = NativeMigrationRecord(id: id, createdAt: Date(), sourceProfile: source.id, targetProfile: target.id,
-                threadID: thread.threadID, title: thread.title, project: thread.cwd, targetHome: targetHome.path,
+                threadID: thread.threadID, title: desiredName, project: thread.cwd, targetHome: targetHome.path,
                 rolloutRelative: relative, rolloutHash: originalHash, runtimeVersion: cli, before: before)
             record.transferKind = replacement == nil ? "import" : "return"
             record.previousTransferID = prior?.id
             record.replacedRolloutHash = replacement.flatMap { before[$0] }
+            if sourceProject != nil { record.desktopStateBefore = try NativeDesktopState.snapshot(targetHome) }
             try save(record, root: root)
             try NativeFiles.write(["rollout.jsonl": originalHash], to: package.appendingPathComponent("checksums.json"))
             stage = "backup"
@@ -183,6 +194,7 @@ actor NativeMigrationCoordinator {
             try NativeFiles.stopped(sourceHome, electron: source.electronHome(in: root))
             try NativeFiles.stopped(targetHome, electron: target.electronHome(in: root))
             try portable.validate()
+            if let state = record.desktopStateBefore { guard try NativeDesktopState.snapshot(targetHome) == state else { throw NativeMigrationError.changed } }
             stage = "import"
             targetMayHaveChanged = true
             record.status = "importing"; try save(record, root: root)
@@ -226,6 +238,15 @@ actor NativeMigrationCoordinator {
                     guard try NativeFiles.stoppedDatabaseRows(db, "SELECT project_id FROM threads WHERE id=?", bindings: [thread.threadID], diagnosticStage: "project") == [[record.importedProjectID!]],
                           try NativeFiles.stoppedDatabaseRows(db, "PRAGMA integrity_check", diagnosticStage: "project") == [["ok"]] else { throw NativeMigrationDiagnostic(stage: "project", code: "projectVerificationFailed") }
                 }
+                stage = "visibility"
+                try NativeFiles.stopped(targetHome, electron: target.electronHome(in: root))
+                try NativeHistoryLoader.setName(binary: binary, home: targetHome, threadID: thread.threadID, name: desiredName)
+                if let project = sourceProject, let id = record.importedProjectID {
+                    guard let beforeState = record.desktopStateBefore, try NativeDesktopState.snapshot(targetHome) == beforeState else { throw NativeMigrationError.changed }
+                    try NativeDesktopState.register(home: targetHome, threadID: thread.threadID, project: project, serverID: id, serverName: record.importedProjectName ?? project.name)
+                }
+                guard try NativeHistoryLoader.hasDisplayName(binary: binary, home: targetHome, threadID: thread.threadID, name: desiredName) else { throw NativeMigrationError.helper }
+                try portable.validate()
                 record.evidence = second; record.status = "verified"
             } catch {
                 record.status = "failed"
@@ -239,6 +260,7 @@ actor NativeMigrationCoordinator {
             // Persist failures as well: the UI can offer a guarded rollback after relaunch.
             stage = "record"
             record.after = try NativeFiles.inventory(targetHome)
+            if record.desktopStateBefore != nil { record.desktopStateAfterHash = try NativeDesktopState.fingerprint(targetHome) }
             try save(record, root: root)
             return record
         } catch {
@@ -256,16 +278,22 @@ actor NativeMigrationCoordinator {
         try NativeFiles.stopped(home, electron: target.electronHome(in: root))
         let package = directory(root, id), backup = package.appendingPathComponent("backup")
         guard try NativeFiles.inventory(backup) == record.before else { throw NativeMigrationError.invalid }
-        if recoverInterrupted && interrupted { record.after = try NativeFiles.inventory(home) }
+        if recoverInterrupted && interrupted {
+            record.after = try NativeFiles.inventory(home)
+            if record.desktopStateBefore != nil { record.desktopStateAfterHash = try NativeDesktopState.fingerprint(home) }
+        }
+        if let stateHash = record.desktopStateAfterHash { guard try NativeDesktopState.fingerprint(home) == stateHash else { throw NativeMigrationError.rollbackChanged } }
         guard try NativeFiles.inventory(home) == record.after else { throw NativeMigrationError.rollbackChanged }
         let preserved = package.appendingPathComponent("before-rollback-\(UUID())")
         try NativeFiles.directory(preserved)
         for key in record.after.keys { try NativeFiles.copy(home.appendingPathComponent(key), to: preserved.appendingPathComponent(key)) }
         guard try NativeFiles.inventory(preserved) == record.after, try NativeFiles.inventory(home) == record.after else { throw NativeMigrationError.changed }
         try NativeFiles.stopped(home, electron: target.electronHome(in: root))
+        if let stateHash = record.desktopStateAfterHash { guard try NativeDesktopState.fingerprint(home) == stateHash else { throw NativeMigrationError.rollbackChanged } }
         record.status = "restoring"; try save(record, root: root)
         for key in record.after.keys { try NativeFiles.fm.removeItem(at: home.appendingPathComponent(key)) }
         for key in record.before.keys { try NativeFiles.copy(backup.appendingPathComponent(key), to: home.appendingPathComponent(key)) }
+        if let state = record.desktopStateBefore { try NativeDesktopState.restore(state, home: home) }
         guard try NativeFiles.inventory(home) == record.before else { throw NativeMigrationError.recovery }
         record.status = "rolledBack"; try save(record, root: root)
         return record

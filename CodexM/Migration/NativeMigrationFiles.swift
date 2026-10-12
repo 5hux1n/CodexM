@@ -316,3 +316,100 @@ enum NativeFiles {
         return occupancy(in: String(decoding: stdout, as: UTF8.self), rootPath: canonicalHome)
     }
 }
+
+/// The desktop still resolves sidebar membership through its local-project
+/// registry. Capture only project display keys, never account/auth preferences.
+enum NativeDesktopState {
+    static let keys: Set<String> = ["local-projects", "project-order", "thread-project-assignments", "thread-project-membership-host-ids", "projectless-thread-ids", "app-server-project-id-by-legacy-project-id-by-host"]
+    private static func read(_ home: URL) throws -> [String: Any] {
+        let file = home.appendingPathComponent(".codex-global-state.json")
+        try NativeFiles.safe(file)
+        guard NativeFiles.fm.fileExists(atPath: file.path) else { return [:] }
+        guard (try file.resourceValues(forKeys: [.fileSizeKey])).fileSize ?? Int.max <= 16 * 1024 * 1024,
+              let object = try JSONSerialization.jsonObject(with: Data(contentsOf: file)) as? [String: Any] else { throw NativeMigrationError.invalid }
+        try validateTypes(object)
+        return object
+    }
+    private static func validateTypes(_ object: [String: Any]) throws {
+        for key in ["local-projects", "thread-project-assignments"] where object[key] != nil {
+            guard object[key] is [String: [String: Any]] else { throw NativeMigrationError.invalid }
+        }
+        for key in ["project-order", "projectless-thread-ids"] where object[key] != nil {
+            guard object[key] is [String] else { throw NativeMigrationError.invalid }
+        }
+        if let hosts = object["thread-project-membership-host-ids"] { guard hosts is [String: String] else { throw NativeMigrationError.invalid } }
+        if let maps = object["app-server-project-id-by-legacy-project-id-by-host"] { guard maps is [String: [String: String]] else { throw NativeMigrationError.invalid } }
+    }
+    private static func write(_ object: [String: Any], home: URL) throws {
+        let file = home.appendingPathComponent(".codex-global-state.json")
+        try NativeFiles.safe(file)
+        try JSONSerialization.data(withJSONObject: object, options: [.sortedKeys]).write(to: file, options: .atomic)
+        try NativeFiles.fm.setAttributes([.posixPermissions: 0o600], ofItemAtPath: file.path)
+    }
+    static func snapshot(_ home: URL) throws -> Data {
+        let data = try JSONSerialization.data(withJSONObject: read(home).filter { keys.contains($0.key) }, options: [.sortedKeys])
+        guard data.count <= 8 * 1024 * 1024 else { throw NativeMigrationError.invalid }
+        return data
+    }
+    static func validateSnapshot(_ data: Data) throws -> [String: Any] {
+        guard data.count <= 8 * 1024 * 1024, let object = try JSONSerialization.jsonObject(with: data) as? [String: Any], Set(object.keys).isSubset(of: keys) else { throw NativeMigrationError.invalid }
+        try validateTypes(object)
+        return object
+    }
+    static func fingerprint(_ home: URL) throws -> String {
+        SHA256.hash(data: try snapshot(home)).map { String(format: "%02x", $0) }.joined()
+    }
+    static func restore(_ data: Data, home: URL) throws {
+        let before = try validateSnapshot(data)
+        var current = try read(home)
+        for key in keys { current.removeValue(forKey: key) }
+        for (key, value) in before { current[key] = value }
+        try write(current, home: home)
+    }
+    private static func paths(_ roots: [String]) -> Set<String> {
+        Set(roots.map { URL(fileURLWithPath: $0).resolvingSymlinksInPath().standardizedFileURL.path })
+    }
+    static func visible(home: URL, threadID: String, project: NativeProject) throws -> Bool {
+        let state = try read(home)
+        guard let assignment = (state["thread-project-assignments"] as? [String: [String: Any]])?[threadID], assignment["projectKind"] as? String == "local",
+              let id = assignment["projectId"] as? String, let local = (state["local-projects"] as? [String: [String: Any]])?[id],
+              let roots = local["rootPaths"] as? [String], paths(roots) == paths(project.roots),
+              (state["project-order"] as? [String])?.contains(id) == true,
+              !(state["projectless-thread-ids"] as? [String] ?? []).contains(threadID) else { return false }
+        let host = "local:" + home.resolvingSymlinksInPath().standardizedFileURL.path
+        let serverID = try NativeFiles.stoppedDatabaseRows(home.appendingPathComponent("state_5.sqlite"), "SELECT project_id FROM threads WHERE id=?", bindings: [threadID], diagnosticStage: "visibility").first?.first
+        guard let serverID, !serverID.isEmpty,
+              (state["app-server-project-id-by-legacy-project-id-by-host"] as? [String: [String: String]])?[host]?[id] == serverID,
+              (state["thread-project-membership-host-ids"] as? [String: String])?[threadID] == "local" else { return false }
+        return true
+    }
+    static func register(home: URL, threadID: String, project: NativeProject, serverID: String, serverName: String) throws {
+        var state = try read(home)
+        var projects = state["local-projects"] as? [String: [String: Any]] ?? [:]
+        let matches = projects.keys.sorted().filter { id in
+            guard let roots = projects[id]?["rootPaths"] as? [String] else { return false }
+            return paths(roots) == paths(project.roots)
+        }
+        let id = matches.first ?? serverID
+        if projects[id] == nil {
+            let time = Int64(Date().timeIntervalSince1970 * 1000)
+            projects[id] = ["id": id, "name": serverName, "rootPaths": project.roots, "createdAt": time, "updatedAt": time]
+        } else {
+            guard let roots = projects[id]?["rootPaths"] as? [String], paths(roots) == paths(project.roots) else { throw NativeMigrationError.conflict }
+        }
+        state["local-projects"] = projects
+        var order = state["project-order"] as? [String] ?? []
+        if !order.contains(id) { order.append(id) }; state["project-order"] = order
+        var assignments = state["thread-project-assignments"] as? [String: [String: Any]] ?? [:]
+        assignments[threadID] = ["projectKind": "local", "projectId": id]; state["thread-project-assignments"] = assignments
+        var hosts = state["thread-project-membership-host-ids"] as? [String: String] ?? [:]
+        hosts[threadID] = "local"; state["thread-project-membership-host-ids"] = hosts
+        state["projectless-thread-ids"] = (state["projectless-thread-ids"] as? [String] ?? []).filter { $0 != threadID }
+        var maps = state["app-server-project-id-by-legacy-project-id-by-host"] as? [String: [String: String]] ?? [:]
+        let host = "local:" + home.resolvingSymlinksInPath().standardizedFileURL.path
+        var mapping = maps[host] ?? [:]; mapping[id] = serverID; maps[host] = mapping
+        state["app-server-project-id-by-legacy-project-id-by-host"] = maps
+        try write(state, home: home)
+        guard try visible(home: home, threadID: threadID, project: project) else { throw NativeMigrationError.helper }
+    }
+}

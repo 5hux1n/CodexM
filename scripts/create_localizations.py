@@ -374,6 +374,10 @@ rows.update({
     'native.error.unsupported': ('This migration supports unarchived tasks, including verified conversation forks. Tasks with linked subtasks, goals, artifacts or dynamic tools require Context Handoff.', '支持未归档任务及通过完整历史核验的分叉会话。包含关联子任务、目标、附件或动态工具的任务仍需使用上下文接力。'),
 })
 rows.update({
+    'native.stage.visibility': ('Desktop visibility verification', '客户端显示核验'),
+    'native.next': ('The full history, display name and project membership have been verified. Open the target account and find the task by its original name.', '完整历史、会话名称与项目归属已核验。打开目标账户后，可按原名称找到任务。'),
+})
+rows.update({
     'native.inactiveCopy': ('Older copy · continue in %@', '旧副本 · 当前在 %@ 继续'),
     'native.returnResult': ('Updated the existing task after common-history verification; its earlier version is backed up.', '已核验共同历史并更新已有对话；更新前的版本已备份。'),
     'native.import': ('Transfer and Open Target', '接力迁移并打开目标'),

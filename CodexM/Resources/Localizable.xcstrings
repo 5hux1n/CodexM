@@ -3458,13 +3458,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "After import, the target account opens automatically. Find this task in its original project when available, or in the task list; no context pasting is needed. Check the history, then manually send a small continuation request. Import verification does not establish cross-account execution compatibility."
+            "value": "The full history, display name and project membership have been verified. Open the target account and find the task by its original name."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "导入成功后自动打开目标账户，原任务有本地项目分组时会归入对应项目，可在项目下找到；否则仍显示在任务列表，无需复制或粘贴上下文。先检查历史，再手动发送一条简短的继续指令。导入验证不代表已证明跨账户执行兼容。"
+            "value": "完整历史、会话名称与项目归属已核验。打开目标账户后，可按原名称找到任务。"
           }
         }
       }
@@ -4196,6 +4196,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "检查迁移参数"
+          }
+        }
+      }
+    },
+    "native.stage.visibility": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Desktop visibility verification"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "客户端显示核验"
           }
         }
       }

@@ -64,8 +64,8 @@ final class NativeChild {
         String(decoding: try readLine(deadline: Date().addingTimeInterval(10)), as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
     }
     func call(_ method: String, _ params: [String: Any]) throws -> [String: Any] {
-        guard ["initialize", "thread/resume", "thread/read", "thread/turns/list", "project/list", "project/create", "thread/metadata/update"].contains(method) else { throw NativeMigrationError.helper }
-        stage = ["initialize": "initialize", "thread/resume": "resume", "thread/read": "read", "thread/turns/list": "page", "project/list": "project", "project/create": "project", "thread/metadata/update": "project"][method] ?? "load"
+        guard ["initialize", "thread/resume", "thread/read", "thread/turns/list", "project/list", "project/create", "thread/metadata/update", "thread/name/set"].contains(method) else { throw NativeMigrationError.helper }
+        stage = ["initialize": "initialize", "thread/resume": "resume", "thread/read": "read", "thread/turns/list": "page", "project/list": "project", "project/create": "project", "thread/metadata/update": "project", "thread/name/set": "visibility"][method] ?? "load"
         sequence += 1; let id = sequence
         try send(["id": id, "method": method, "params": params])
         let deadline = Date().addingTimeInterval(45)
@@ -78,7 +78,7 @@ final class NativeChild {
             }
             if response["id"] as? Int == id {
                 if let error = response["error"] as? [String: Any] {
-                    let stage = ["initialize": "initialize", "thread/resume": "resume", "thread/read": "read", "thread/turns/list": "page", "project/list": "project", "project/create": "project", "thread/metadata/update": "project"][method] ?? "load"
+                    let stage = ["initialize": "initialize", "thread/resume": "resume", "thread/read": "read", "thread/turns/list": "page", "project/list": "project", "project/create": "project", "thread/metadata/update": "project", "thread/name/set": "visibility"][method] ?? "load"
                     throw NativeMigrationDiagnostic(stage: stage, code: "RPC \((error["code"] as? Int) ?? -1)")
                 }
                 guard let result = response["result"] as? [String: Any] else { throw NativeMigrationDiagnostic(stage: stage, code: "rpc-missingResult") }
@@ -157,6 +157,43 @@ enum NativeHistoryLoader {
         let result = try child.call("thread/read", ["threadId": threadID, "includeTurns": false])
         guard (result["thread"] as? [String: Any])?["projectId"] as? String == id else { throw NativeMigrationDiagnostic(stage: "project", code: "projectAssignmentMismatch") }
         return (id, foundName ?? project.name)
+    }
+    static func setName(binary: URL, home: URL, threadID: String, name: String) throws {
+        guard !name.isEmpty else { return }
+        let child = try NativeChild(binary: binary, arguments: ["app-server", "--stdio", "-c", "analytics.enabled=false", "-c", "mcp_servers={}", "-c", "cli_auth_credentials_store=\"file\""], home: home, cwd: home)
+        defer { child.close() }
+        try child.initialize()
+        _ = try child.call("thread/name/set", ["threadId": threadID, "name": name])
+        let result = try child.call("thread/read", ["threadId": threadID, "includeTurns": false])
+        guard (result["thread"] as? [String: Any])?["name"] as? String == name else { throw NativeMigrationError.helper }
+    }
+    static func hasDisplayName(binary: URL, home: URL, threadID: String, name: String) throws -> Bool {
+        if name.isEmpty { return true }
+        return try displayName(binary: binary, home: home, threadID: threadID) == name
+    }
+    static func persistedDisplayName(home: URL, threadID: String) throws -> String? {
+        let index = home.appendingPathComponent("session_index.jsonl")
+        var found = false, name: String?
+        if NativeFiles.fm.fileExists(atPath: index.path), let reader = try? NativeRolloutReader(index) {
+            while let line = try? reader.next() {
+                guard let entry = try? JSONSerialization.jsonObject(with: line) as? [String: Any], entry["id"] as? String == threadID,
+                      let value = entry["thread_name"] as? String, value.utf8.count <= 16_384 else { continue }
+                found = true; name = value.isEmpty ? nil : value
+            }
+        }
+        if found { return name }
+        let value = try NativeFiles.stoppedDatabaseRows(home.appendingPathComponent("state_5.sqlite"), "SELECT name FROM threads WHERE id=?", bindings: [threadID], diagnosticStage: "visibility").first?.first
+        return value.flatMap { $0.isEmpty ? nil : $0 }
+    }
+    static func displayName(binary: URL, home: URL, threadID: String) throws -> String? {
+        // Some runtimes persist names in session_index before their SQLite
+        // projection catches up. A fresh official read is authoritative.
+        let child = try NativeChild(binary: binary, arguments: ["app-server", "--stdio", "-c", "analytics.enabled=false", "-c", "mcp_servers={}", "-c", "cli_auth_credentials_store=\"file\""], home: home, cwd: home)
+        defer { child.close() }
+        try child.initialize()
+        let result = try child.call("thread/read", ["threadId": threadID, "includeTurns": false])
+        guard let thread = result["thread"] as? [String: Any], thread["id"] as? String == threadID else { throw NativeMigrationError.helper }
+        return (thread["name"] as? String).flatMap { $0.isEmpty ? nil : $0 }
     }
     static let fixtureCLI = "codex-cli 0.154.0-alpha.6.2"
     /// Discover the selected client's embedded CLI by bundle identity and executable

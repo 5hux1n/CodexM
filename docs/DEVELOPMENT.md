@@ -115,3 +115,14 @@ DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer ./scripts/test_native_r
 正式写入前，官方程序从包含原始依赖的无凭据私有副本及合并后的独立副本加载历史，并跨服务重启验证。官方分页 API 可能只投影分叉的本地轮次，因此要求原始副本所返回的全部轮次/条目与完整副本的末尾数量和内容哈希一致；继承部分依据递归截断、连续 ordinal 与记录保留核验，完整副本的全部历史再经官方程序稳定重建。无法满足此关系的分叉拒绝导入。回迁到原账户时也先展开目标的继承历史，再执行已有前缀、接力归属、备份和回滚检查。目标仅导入所选会话，不额外导入祖先任务。合并后的文件是后续迁移基线。
 
 测试增加嵌套分页分叉、未索引 generation、祖先截断后的新轮次排除、官方完整历史重建及本地历史末尾一致、来源不变、回迁重启，以及缺失依赖、歧义、循环、越界 ordinal 和截断边界拒绝（两端保持不变）。可在本机使用 `build/native-round-trip-tests <official-cli> <source-home> <rollout> <project> <thread-id>` 对指定实际分叉做只读诊断，官方程序仅访问无凭据临时副本；输出仅包含数量，不输出对话内容。
+
+
+## 会话名称与客户端项目栏登记（1.1.2）
+
+完整历史重建不会自动恢复 SQLite `threads.name`，且当前桌面客户端的项目栏仍依赖 `.codex-global-state.json` 的 legacy 项目注册与会话 assignment，仅设置服务器 `project_id` 无法保证客户端能在项目中找到任务。
+
+迁移在宣称成功前通过官方 `thread/name/set` 恢复显示名称，并在新的官方服务进程中再次读取名称核验；兼容先写 session_index、后更新 SQLite 投影的版本。CodexM 的会话选择器也优先读取 session_index 的最新名称，避免再次回迁时丢失短标题。项目按规范化根目录复用目标已有项目，补齐客户端 local-projects、project-order、thread-project-assignments、thread-project-membership-host-ids 和当前 CODEX_HOME 下的 legacy → app-server project ID 映射；只移除该会话的 projectless 标记，不改变目标的当前项目选择、其他项目或账户偏好。所有操作仍要求客户端停止，下一次启动读取登记结果。
+
+迁移记录新增可选 `desktopStateBefore` 与 `desktopStateAfterHash`，兼容旧记录。备份只包含项目显示键，排除账户、认证与其他 Electron 偏好；回滚先核验显示状态未改变，再恢复这些键并保留其他键。后续项目栏编辑会阻止回滚，避免覆盖用户变化。完全相同的旧导入若缺少名称或客户端项目登记，会走新的完整备份/修复记录；已经完整的重复迁移仍保持不写入，并保留目标用户后来设置的名称。
+
+验证增加原名称保留、项目栏登记与映射、旧成功记录的显示修复、无关项目/当前选择/私人偏好不变、显示备份不含凭据字段，以及显示状态变更时拒绝回滚和恢复显示状态。真实客户端的最终显示需要启动后验收，服务端历史验证不等同于 GUI 已展示。

@@ -53,5 +53,7 @@ struct NativeMigrationRecord: Codable, Identifiable, Sendable {
     var transferKind: String?
     var previousTransferID: UUID?
     var replacedRolloutHash: String?
+    var desktopStateBefore: Data?
+    var desktopStateAfterHash: String?
     var containsCredentials = false
 }
